@@ -1032,6 +1032,11 @@ bindSwipe($('#viewTasks'), () => {
 });
 
 renderLogin();
+  if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW:', err));
+  });
+}
 </script>
 </body>
 </html>
