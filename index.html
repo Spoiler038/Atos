@@ -461,11 +461,12 @@
 
 <script>
 const KEY = 'horse_crm_v1';
-const KEY = 'horse_crm_v1';
-const KEY_META = 'horse_crm_meta'; // { version, lastSync }
+const KEY_META = 'horse_crm_meta';
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyNKcWOrgvbaK9Tk3RYCH1uYs22_EuMNw79VLiAJEi5Dh5Wv2KWmlZQVy1V17_bn7pvHA/exec'; // ← вставьте свой URL из Deploy
 const APP_VERSION = 1; // повышайте при изменении структуры данных на клиенте
 const DEFAULT_HORSES = ['Атос', 'Портос', 'Арамис', 'Артик', 'Империя'];
+
+const APP_VERSION = 1;
 
 const DEFAULT_STATE = {
   staff: [
@@ -473,7 +474,13 @@ const DEFAULT_STATE = {
     { id: 's2', name: 'Пётр', role: 'staff' },
     { id: 's3', name: 'Мария', role: 'staff' }
   ],
-  horses: DEFAULT_HORSES.map((n, i) => ({ id: 'h' + (i + 1), name: n })),
+  horses: [
+    { id: 'h1', name: 'Атос' },
+    { id: 'h2', name: 'Портос' },
+    { id: 'h3', name: 'Арамис' },
+    { id: 'h4', name: 'Артик' },
+    { id: 'h5', name: 'Империя' }
+  ],
   manipulations: {
     pre: [
       { id: 'p1', name: 'Почистить' },
@@ -494,7 +501,6 @@ const DEFAULT_STATE = {
   lessons: [],
   tasks: []
 };
-
 let state = loadState();
 let currentUser = null;
 let calMode = 'month';
