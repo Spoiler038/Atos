@@ -378,6 +378,36 @@
         box-shadow: 0 0 40px rgba(0,0,0,0.8); /* Красивая тень по бокам */
       }
     }
+
+        /* ===== АНИМАЦИЯ НАЖАТИЯ КНОПОК ===== */
+    @keyframes buttonPop {
+      0% { transform: scale(1); }
+      50% { transform: scale(0.94); }
+      100% { transform: scale(1); }
+    }
+
+    /* Применяем анимацию ко всем кнопкам и элементам с ролью кнопки */
+    button, 
+    .btn, 
+    .nav-btn, 
+    .add-btn, 
+    .sheet-actions button,
+    .topbar button,
+    #loginNameBtn {
+      transition: transform 0.1s ease, background-color 0.2s ease, opacity 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation; /* Убирает задержку 300мс на телефонах */
+    }
+
+    /* Само нажатие */
+    button:active, 
+    .btn:active, 
+    .nav-btn:active,
+    .add-btn:active,
+    #loginNameBtn:active {
+      animation: buttonPop 0.25s ease;
+      opacity: 0.8; /* Легкое затемнение при нажатии */
+    }
   </style>
 </head>
 <body>
