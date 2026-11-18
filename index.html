@@ -858,7 +858,17 @@ let loginAttemptId = null;
 
 function renderLogin() {
   const nameSel = $('#loginName');
-  const staffList = (state && state.staff) ? state.staff : [];
+  
+  // Очищаем список перед заполнением (чтобы не было дублей)
+  nameSel.innerHTML = ''; 
+  
+  // Берем сотрудников и сортируем: сначала owner, потом остальные
+  const staffList = (state && state.staff) ? [...state.staff] : [];
+  staffList.sort((a, b) => {
+    if (a.role === 'owner' && b.role !== 'owner') return -1;
+    if (a.role !== 'owner' && b.role === 'owner') return 1;
+    return 0; // остальных оставляем как есть
+  });
   
   // Если в базе есть сотрудник с нашим device_id — автовход
   if (!currentUser) {
@@ -1475,38 +1485,7 @@ bindSwipe($('#viewTasks'), () => {
   renderTasks();
 });
 
-$('#logoutBtn').addEventListener('click', () => {
-  if (confirm('Выйти из системы?')) {
-    if (currentUser) {
-      // Отвязываем устройство от сотрудника в таблице
-      const person = state.staff.find(s => s.id === currentUser.staffId);
-      if (person) {
-        person.device_id = '';
-        gasCall({
-          action: 'save_all',
-          state: {
-            staff: state.staff,
-            horses: state.horses,
-            manipulations: state.manipulations,
-            lessons: state.lessons,
-            tasks: state.tasks
-          }
-        });
-        saveState();
-      }
-    }
-    
-    // Сбрасываем текущего пользователя
-    currentUser = null;
-    
-    // Скрываем приложение, показываем экран входа
-    $('#appScreen').style.display = 'none';
-    $('#loginScreen').style.display = 'flex';
-    
-    // Перерисовываем список (пароль уже не спросится)
-    renderLogin();
-  }
-});
+
   
 // === ДИАГНОСТИКА GAS ===
 async function testGasConnection() {
