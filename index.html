@@ -363,8 +363,22 @@
 </head>
 <body>
     <!-- Универсальный сплеш для Android/ПК -->
-  <div id="splashScreen" style="position:fixed; inset:0; background:#000; z-index:99999; display:flex; align-items:center; justify-content:center; transition: opacity 0.5s ease;">
-    <img src="icons/splash.png" style="width:100%; height:100%; object-fit:cover;" alt="Загрузка...">
+    <!-- КАСТОМНЫЙ СПЛЕШ-СКРИН С ИНДИКАТОРОМ -->
+  <div id="splashScreen" style="position:fixed; inset:0; background:#000; z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; transition: opacity 0.5s ease;">
+    
+    <!-- Фото лошади -->
+    <img src="icons/splash.png" style="width:100%; height:100%; object-fit:cover; position:absolute; z-index: -1;" alt="Загрузка...">
+    
+    <!-- Блок индикатора -->
+    <div style="position:absolute; bottom: 15%; width: 80%; max-width: 300px; text-align: center; z-index: 10;">
+      <!-- Полоска -->
+      <div style="width: 100%; height: 6px; background: rgba(245, 236, 217, 0.2); border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
+        <div id="splashProgressBar" style="width: 5%; height: 100%; background: #b45309; transition: width 0.4s ease-out;"></div>
+      </div>
+      <!-- Текст статуса -->
+      <div id="splashStatusText" style="font-family: system-ui; font-size: 13px; color: #b8a68a; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">Проверка сети...</div>
+    </div>
+
   </div>
   <div id="toast" class="toast"></div>
 
@@ -896,6 +910,14 @@ function toast(msg, ok = false) {
   clearTimeout(t._t);
   t._t = setTimeout(() => t.classList.remove('show'), 2600);
 }
+
+function updateSplashProgress(percent, text) {
+  const bar = document.getElementById('splashProgressBar');
+  const label = document.getElementById('splashStatusText');
+  if (bar) bar.style.width = percent + '%';
+  if (label && text) label.textContent = text;
+}
+  
 function horseName(id) { return (state.horses.find(h => h.id === id) || {}).name || '—'; }
 function staffName(id) { return (state.staff.find(s => s.id === id) || {}).name || '—'; }
 function lockScroll()   { document.body.style.overflow = 'hidden'; }
@@ -1561,29 +1583,39 @@ bindSwipe($('#viewTasks'), () => {
 
   
 // === ДИАГНОСТИКА GAS ===
+// === ДИАГНОСТИКА GAS И ЗАГРУЗКА ===
 async function testGasConnection() {
-  console.log('⏳ Проверка связи с GAS...');
+  // Искусственная задержка, чтобы пользователь успел увидеть начало загрузки
+  await new Promise(r => setTimeout(r, 400));
+  updateSplashProgress(15, 'Соединение с сервером...');
   
   // 1. Проверяем пинг
   const { data: pingData, error: pingError } = await gasCall({ action: 'ping' });
   if (pingError) {
+    updateSplashProgress(100, 'Нет сети. Загружаем офлайн...');
     console.error('❌ Ошибка GAS (ping):', pingError.message);
-    toast('Нет связи с сервером. Работаем в офлайне.', false);
+    setTimeout(() => {
+      hideSplash();
+      toast('Нет связи с сервером. Работаем в офлайне.', false);
+    }, 1000);
     return;
   }
-  console.log('✅ GAS доступен. Ответ:', pingData);
   
-  // 2. Запрашиваем данные из таблицы
+  // 2. Запрашиваем данные
+  updateSplashProgress(40, 'Скачивание данных...');
+  await new Promise(r => setTimeout(r, 300)); // пауза для плавности
+  
   const { data: loadRes, error: loadError } = await gasCall({ action: 'load_all' });
   
   if (loadError) {
+    updateSplashProgress(100, 'Ошибка загрузки данных');
     console.error('❌ Ошибка при загрузке данных:', loadError.message);
-    toast('Ошибка загрузки данных', false);
+    setTimeout(() => { hideSplash(); toast('Ошибка загрузки данных', false); }, 1000);
     return;
   }
 
   if (loadRes && loadRes.staff) {
-    console.log('✅ Данные получены. Сотрудников:', loadRes.staff.length);
+    updateSplashProgress(75, 'Обработка данных...');
     
     // Обновляем глобальный state
     state = normalizeState(loadRes);
@@ -1591,27 +1623,32 @@ async function testGasConnection() {
     renderLogin(); // перерисовываем список сотрудников на экране входа
     
     if (currentUser) renderAllAfterSync();
-    toast('Данные загружены', true);
+    
+    // Завершаем
+    updateSplashProgress(100, 'Готово!');
+    setTimeout(() => {
+      hideSplash();
+      toast('Данные загружены', true);
+    }, 600); // Даем полоске дойти до 100% и скрываем
+    
   } else {
+    updateSplashProgress(100, 'Ошибка формата данных');
     console.error('❌ Данные не получены или формат неверен:', loadRes);
-    toast('Ошибка формата данных', false);
+    setTimeout(() => { hideSplash(); toast('Ошибка формата данных', false); }, 1000);
+  }
+}
+
+// Функция для плавного скрытия сплеша
+function hideSplash() {
+  const splash = document.getElementById('splashScreen');
+  if (splash && splash.style.opacity !== '0') {
+    splash.style.opacity = '0';
+    setTimeout(() => splash.style.display = 'none', 500);
   }
 }
 
 // Запускаем проверку при старте
-testGasConnection(); 
-
-// Скрываем сплеш после загрузки
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    const splash = document.getElementById('splashScreen');
-    if (splash) {
-      splash.style.opacity = '0';
-      setTimeout(() => splash.style.display = 'none', 500); // полностью убираем через 0.5 сек
-    }
-  }, 800); // Показываем сплеш минимум 0.8 секунды для красоты
-});
-  
+testGasConnection();   
 renderLogin();
 
 if ('serviceWorker' in navigator) {
