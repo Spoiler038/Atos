@@ -493,6 +493,12 @@ const KEY = 'horse_crm_v1';
 const KEY_META = 'horse_crm_meta';
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyNKcWOrgvbaK9Tk3RYCH1uYs22_EuMNw79VLiAJEi5Dh5Wv2KWmlZQVy1V17_bn7pvHA/exec'; // ← вставьте свой URL из Deploy
 const APP_VERSION = 1; // повышайте при изменении структуры данных на клиенте
+  // Генерируем стабильный ID устройства при первом запуске
+let deviceId = localStorage.getItem('horse_crm_device_id');
+if (!deviceId) {
+  deviceId = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  localStorage.setItem('horse_crm_device_id', deviceId);
+}
 
 const DEFAULT_STATE = {
   staff: [
@@ -551,31 +557,40 @@ let editingLessonId = null;
    ============================================================ */
 
 // --- JSONP-обёртка ---
-function gasCall(params, timeoutMs = 15000) {
+async function gasCall(params, timeoutMs = 15000) {
   return new Promise((resolve) => {
-    const cb = 'gasCb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    const cbName = 'gasCb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
     const json = JSON.stringify(params);
     const encoded = btoa(unescape(encodeURIComponent(json)));
-    const script = document.createElement('script');
-    let done = false;
-
-    const cleanup = () => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      delete window[cb];
-      if (script.parentNode) script.parentNode.removeChild(script);
-    };
-    const timer = setTimeout(() => { cleanup(); resolve({ data: null, error: new Error('timeout') }); }, timeoutMs);
-
-    window[cb] = (data) => {
-      cleanup();
+    
+    // Создаем глобальную функцию для JSONP
+    window[cbName] = (data) => {
+      delete window[cbName]; // Очищаем память
       if (data && data.error) resolve({ data: null, error: new Error(data.error) });
       else resolve({ data, error: null });
     };
-    script.onerror = () => { cleanup(); resolve({ data: null, error: new Error('network') }); };
 
-    script.src = GAS_URL + '?callback=' + cb + '&data=' + encodeURIComponent(encoded);
+    const script = document.createElement('script');
+    script.src = GAS_URL + '?callback=' + cbName + '&data=' + encodeURIComponent(encoded);
+    
+    script.onerror = () => {
+      delete window[cbName];
+      resolve({ data: null, error: new Error('network error') });
+    };
+
+    const timer = setTimeout(() => {
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+      resolve({ data: null, error: new Error('timeout') });
+    }, timeoutMs);
+
+    // Очищаем таймер при успехе
+    const originalCallback = window[cbName];
+    window[cbName] = (data) => {
+      clearTimeout(timer);
+      originalCallback(data);
+    };
+
     document.head.appendChild(script);
   });
 }
@@ -809,9 +824,18 @@ const ROLES = {
 
 function renderLogin() {
   const nameSel = $('#loginName');
-  // Защита от пустого стейта
   const staffList = (state && state.staff) ? state.staff : [];
   
+  // Если в базе есть сотрудник с нашим device_id — автовход
+  if (!currentUser) {
+    const me = staffList.find(s => s.device_id === deviceId);
+    if (me) {
+      console.log('🔐 Автовход по device_id:', me.name);
+      loginAs(me.id);
+      return;
+    }
+  }
+
   nameSel.innerHTML = staffList.map(s =>
     `<option value="${s.id}">${s.name} — ${ROLES[s.role] ? ROLES[s.role].title : s.role}</option>`
   ).join('');
