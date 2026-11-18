@@ -359,10 +359,20 @@
     ::-webkit-scrollbar-thumb:hover {
       background: var(--border);
     }
+
+        /* Плавное появление сплеша */
+    @keyframes fadeInSplash {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    #splashScreen {
+      animation: fadeInSplash 0.8s ease-out forwards;
+      /* forwards означает, что после анимации прозрачность останется 1 */
+    }
   </style>
 </head>
 <body>
-    <!-- Универсальный сплеш для Android/ПК -->
+    
     <!-- КАСТОМНЫЙ СПЛЕШ-СКРИН С ИНДИКАТОРОМ -->
   <div id="splashScreen" style="position:fixed; inset:0; background:#000; z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; transition: opacity 0.5s ease;">
     
