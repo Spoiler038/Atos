@@ -1494,7 +1494,7 @@ async function testGasConnection() {
   const { data: pingData, error: pingError } = await gasCall({ action: 'ping' });
   if (pingError) {
     console.error('❌ Ошибка GAS (ping):', pingError.message);
-    toast('Нет связи с таблицей. Работаем в офлайне.', false);
+    toast('Нет связи с сервером. Работаем в офлайне.', false);
     return;
   }
   console.log('✅ GAS доступен. Ответ:', pingData);
@@ -1517,7 +1517,7 @@ async function testGasConnection() {
     renderLogin(); // перерисовываем список сотрудников на экране входа
     
     if (currentUser) renderAllAfterSync();
-    toast('Данные загружены из таблицы', true);
+    toast('Данные загружены', true);
   } else {
     console.error('❌ Данные не получены или формат неверен:', loadRes);
     toast('Ошибка формата данных', false);
