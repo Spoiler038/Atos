@@ -1070,7 +1070,16 @@ function switchView(view) {
   if (view === 'admin') renderAdmin();
 }
 
-$$('#bottomNav .nav-btn').forEach(b => b.addEventListener('click', () => {   const view = b.dataset.view;      // Если мы уже на этой вкладке и это "Расписание" — прыгаем на сегодня   if (view === 'schedule' && b.classList.contains('active')) {     goToToday();   } else {     switchView(view);   } }));
+$$('#bottomNav .nav-btn').forEach(b => b.addEventListener('click', () => {
+  const view = b.dataset.view;
+  
+  // Если мы уже на этой вкладке и это "Расписание" — прыгаем на сегодня
+  if (view === 'schedule' && b.classList.contains('active')) {
+    goToToday();
+  } else {
+    switchView(view);
+  }
+}));
 
 /* ===== РАСПИСАНИЕ ===== */
 $$('.cal-modes button').forEach(b => {
