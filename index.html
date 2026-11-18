@@ -314,12 +314,14 @@
     .role-option .role-info small { color: var(--muted); font-size: 11px; }
 
     .empty { text-align: center; color: var(--muted); padding: 24px 0; font-size: 13px; }
-    .toast {
+        .toast {
       position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
       background: var(--danger); color: #fff;
       padding: 10px 16px; border-radius: 10px;
       font-size: 13px; z-index: 2000; display: none;
-      max-width: calc(100% - 32px);
+      width: 90%; /* Ширина 90% */
+      max-width: 480px; /* Чтобы на ПК не было слишком широко */
+      text-align: center;
       box-shadow: 0 6px 20px rgba(0,0,0,.35);
     }
     .toast.show { display: block; }
@@ -340,6 +342,21 @@
     .badge.done { background: rgba(77,124,15,.25); color: #a3e635; }
     .badge.mine { background: rgba(180,83,9,.3); color: #fbbf24; }
     button.badge { border: none; cursor: pointer; }
+
+        /* Красивый тонкий скроллбар */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--panel-2);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--border);
+    }
   </style>
 </head>
 <body>
@@ -1033,6 +1050,13 @@ function startApp() {
   switchView(views[0]);
 }
 
+  function goToToday() {
+  calCursor = new Date();
+  openWeekDay = null; // Сбрасываем аккордеон, чтобы открылся сегодняшний день
+  renderCalendar();
+  toast('Календарь на сегодня', true);
+}
+
 function switchView(view) {
   const views = allowedViews(currentUser.role);
   if (!views.includes(view)) view = views[0];
@@ -1046,7 +1070,7 @@ function switchView(view) {
   if (view === 'admin') renderAdmin();
 }
 
-$$('#bottomNav .nav-btn').forEach(b => b.addEventListener('click', () => switchView(b.dataset.view)));
+$$('#bottomNav .nav-btn').forEach(b => b.addEventListener('click', () => {   const view = b.dataset.view;      // Если мы уже на этой вкладке и это "Расписание" — прыгаем на сегодня   if (view === 'schedule' && b.classList.contains('active')) {     goToToday();   } else {     switchView(view);   } }));
 
 /* ===== РАСПИСАНИЕ ===== */
 $$('.cal-modes button').forEach(b => {
