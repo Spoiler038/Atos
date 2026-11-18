@@ -373,12 +373,18 @@
 </head>
 <body>
     
-    <!-- КАСТОМНЫЙ СПЛЕШ-СКРИН С ИНДИКАТОРОМ -->
+      <!-- КАСТОМНЫЙ СПЛЕШ-СКРИН -->
   <div id="splashScreen" style="position:fixed; inset:0; background:#000; z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; transition: opacity 0.5s ease;">
     
-    <!-- Фото лошади -->
-    <img src="icons/splash.png" style="width:100%; height:100%; object-fit:cover; position:absolute; z-index: -1;" alt="Загрузка...">
-    
+    <!-- Картинки -->
+    <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;">
+      <!-- Иконка (видна сразу) -->
+      <img id="splashIcon" src="icons/android/icon-192x192.png" style="width: 100px; height: 100px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5)); transition: opacity 0.5s ease;" alt="Загрузка...">
+      
+      <!-- Фото лошади (появится, когда загрузится) -->
+      <img id="splashPhoto" src="icons/splash.png" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transition: opacity 0.5s ease;" alt="Загрузка...">
+    </div>
+
     <!-- Блок индикатора -->
     <div style="position:absolute; bottom: 15%; width: 80%; max-width: 300px; text-align: center; z-index: 10;">
       <!-- Полоска -->
@@ -388,7 +394,7 @@
       <!-- Текст статуса -->
       <div id="splashStatusText" style="font-family: system-ui; font-size: 13px; color: #b8a68a; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">Проверка сети...</div>
     </div>
-
+  </div>
   </div>
   <div id="toast" class="toast"></div>
 
@@ -704,38 +710,22 @@ async function checkAppVersion() {
     const serverVersion = Number(data.version) || 1;
     const localVersion = Number(localStorage.getItem('horse_crm_app_ver') || 1);
 
-    if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').then((reg) => {
-      
-      // Проверяем обновления каждые 5 минут
-      setInterval(() => { reg.update(); }, 300000); 
-
-      reg.onupdatefound = () => {
-        const installingWorker = reg.installing;
-        installingWorker.onstatechange = () => {
-          if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // Появилось обновление — показываем красивую шторку
-            $('#updateModal').classList.add('show');
-            lockScroll();
-            
-            // Обработчик кнопки "Обновить"
-            $('#updateConfirmBtn').onclick = () => {
-              $('#updateModal').classList.remove('show');
-              unlockScroll();
-              window.location.reload();
-            };
-            
-            // Обработчик кнопки "Позже"
-            $('#updateCancelBtn').onclick = () => {
-              $('#updateModal').classList.remove('show');
-              unlockScroll();
-            };
-          }
-        };
-      };
-    }).catch(err => console.warn('SW:', err));
-  });
+    if (serverVersion > localVersion) {
+      console.log(`🔄 Обновление приложения: ${localVersion} → ${serverVersion}`);
+      localStorage.setItem('horse_crm_app_ver', serverVersion);
+      localStorage.removeItem(KEY);
+      localStorage.removeItem(KEY_META);
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (let reg of regs) { await reg.update(); }
+      }
+      window.location.reload();
+    } else {
+      localStorage.setItem('horse_crm_app_ver', serverVersion);
+    }
+  } catch (e) {
+    console.warn('Не удалось проверить версию', e);
+  }
 }
   
 // --- Загрузка состояния ---
@@ -1682,6 +1672,22 @@ function hideSplash() {
   }
 }
 
+
+  // --- Плавная замена иконки на фото ---
+const splashIcon = document.getElementById('splashIcon');
+const splashPhoto = document.getElementById('splashPhoto');
+
+if (splashPhoto.complete) {
+  // Если картинка уже в кеше браузера (мгновенно)
+  splashIcon.style.opacity = '0';
+  splashPhoto.style.opacity = '1';
+} else {
+  // Если картинка грузится по сети — ждем
+  splashPhoto.onload = () => {
+    splashIcon.style.opacity = '0';
+    splashPhoto.style.opacity = '1';
+  };
+}
 // Запускаем проверку при старте
 testGasConnection();   
 renderLogin();
@@ -1690,19 +1696,29 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').then((reg) => {
       
-      // Проверяем обновления каждые 5 минут (300000 мс)
-      setInterval(() => {
-        reg.update();
-      }, 300000); 
+      // Проверяем обновления каждые 5 минут
+      setInterval(() => { reg.update(); }, 300000); 
 
       reg.onupdatefound = () => {
         const installingWorker = reg.installing;
         installingWorker.onstatechange = () => {
           if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // Появилось обновление — показываем красивое окно вместо простой перезагрузки
-            if (confirm('Доступно обновление приложения! Перезагрузить сейчас?')) {
+            // Появилось обновление — показываем красивую шторку
+            $('#updateModal').classList.add('show');
+            lockScroll();
+            
+            // Обработчик кнопки "Обновить"
+            $('#updateConfirmBtn').onclick = () => {
+              $('#updateModal').classList.remove('show');
+              unlockScroll();
               window.location.reload();
-            }
+            };
+            
+            // Обработчик кнопки "Позже"
+            $('#updateCancelBtn').onclick = () => {
+              $('#updateModal').classList.remove('show');
+              unlockScroll();
+            };
           }
         };
       };
