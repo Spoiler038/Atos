@@ -504,6 +504,21 @@
     </div>
   </div>
 
+    <!-- МОДАЛКА ВЫХОДА -->
+  <div class="overlay" id="logoutModal">
+    <div class="sheet">
+      <h3>Выход из системы</h3>
+      <div class="field" style="text-align: center; margin-bottom: 20px;">
+        Вы уверены, что хотите выйти?<br>
+        <span style="font-size: 12px; color: var(--muted);">Устройство будет отвязано, и для входа снова потребуется пароль.</span>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn ghost" id="logoutCancelBtn">Отмена</button>
+        <button class="btn danger" id="logoutConfirmBtn">Выйти</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 const KEY = 'horse_crm_v1';
 const KEY_META = 'horse_crm_meta';
@@ -954,30 +969,43 @@ $('#loginPassword').addEventListener('keydown', (e) => {
 
 // Обработчик кнопки "Выйти" (в шапке приложения)
 $('#logoutBtn').addEventListener('click', () => {
-  if (confirm('Выйти из системы?')) {
-    if (currentUser) {
-      const person = state.staff.find(s => s.id === currentUser.staffId);
-      if (person) {
-        person.device_id = ''; // Отвязываем устройство
-        gasCall({
-          action: 'save_all',
-          state: {
-            staff: state.staff,
-            horses: state.horses,
-            manipulations: state.manipulations,
-            lessons: state.lessons,
-            tasks: state.tasks
-          }
-        });
-        saveState();
-      }
+  $('#logoutModal').classList.add('show');
+  lockScroll();
+});
+
+// Отмена выхода
+$('#logoutCancelBtn').addEventListener('click', () => {
+  $('#logoutModal').classList.remove('show');
+  unlockScroll();
+});
+
+// Подтверждение выхода
+$('#logoutConfirmBtn').addEventListener('click', () => {
+  $('#logoutModal').classList.remove('show');
+  unlockScroll();
+
+  if (currentUser) {
+    const person = state.staff.find(s => s.id === currentUser.staffId);
+    if (person) {
+      person.device_id = ''; // Отвязываем устройство
+      gasCall({
+        action: 'save_all',
+        state: {
+          staff: state.staff,
+          horses: state.horses,
+          manipulations: state.manipulations,
+          lessons: state.lessons,
+          tasks: state.tasks
+        }
+      });
+      saveState();
     }
-    
-    currentUser = null;
-    $('#appScreen').style.display = 'none';
-    $('#loginScreen').style.display = 'flex';
-    renderLogin();
   }
+  
+  currentUser = null;
+  $('#appScreen').style.display = 'none';
+  $('#loginScreen').style.display = 'flex';
+  renderLogin();
 });
 
 
