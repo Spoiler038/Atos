@@ -412,6 +412,7 @@
             <input id="newStaff" placeholder="Имя сотрудника" />
             <select id="newStaffRole">
               <option value="staff">Сотрудник</option>
+              <option value="groom">Конюх</option>
               <option value="trainer">Тренер</option>
               <option value="owner">Владелец</option>
             </select>
@@ -802,6 +803,7 @@ function unlockScroll() { document.body.style.overflow = ''; }
 const ROLES = {
   owner:   { title: 'Владелец',  desc: 'Расписание, лошади, сотрудники, манипуляции' },
   trainer: { title: 'Тренер',    desc: 'Свои тренировки и назначенные задачи' },
+  groom:   { title: 'Конюх',     desc: 'Уход за лошадьми, выполнение назначенных манипуляций' },
   staff:   { title: 'Сотрудник', desc: 'Только назначенные манипуляции' }
 };
 
@@ -821,7 +823,8 @@ function renderLogin() {
 function allowedViews(role) {
   if (role === 'owner') return ['schedule', 'tasks', 'horses', 'admin'];
   if (role === 'trainer') return ['schedule', 'tasks', 'horses'];
-  return ['tasks', 'horses'];
+  // Конюх и обычный сотрудник видят только свои задачи и лошадей
+  return ['tasks', 'horses']; 
 }
 
 function startApp() {
@@ -1194,7 +1197,7 @@ function renderAdmin() {
   $$('[data-role-staff]').forEach(b => b.onclick = () => {
     const s = state.staff.find(x => x.id === b.dataset.roleStaff);
     if (!s) return;
-    const order = ['staff', 'trainer', 'owner'];
+    const order = ['staff', 'groom', 'trainer', 'owner'];
     s.role = order[(order.indexOf(s.role) + 1) % order.length];
     saveState(); renderAdmin();
   });
