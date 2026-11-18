@@ -573,6 +573,21 @@
     </div>
   </div>
 
+    <!-- МОДАЛКА ОБНОВЛЕНИЯ ПРИЛОЖЕНИЯ -->
+  <div class="overlay" id="updateModal">
+    <div class="sheet">
+      <h3>Доступно обновление</h3>
+      <div class="field" style="text-align: center; margin-bottom: 20px;">
+        Вышла новая версия приложения.<br>
+        <span style="font-size: 12px; color: var(--muted);">Перезагрузить сейчас, чтобы применить изменения?</span>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn ghost" id="updateCancelBtn">Позже</button>
+        <button class="btn" id="updateConfirmBtn">Обновить</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 const KEY = 'horse_crm_v1';
 const KEY_META = 'horse_crm_meta';
@@ -689,28 +704,38 @@ async function checkAppVersion() {
     const serverVersion = Number(data.version) || 1;
     const localVersion = Number(localStorage.getItem('horse_crm_app_ver') || 1);
 
-    if (serverVersion > localVersion) {
-      console.log(`🔄 Обновление приложения: ${localVersion} → ${serverVersion}`);
+    if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then((reg) => {
       
-      // Сохраняем новую версию
-      localStorage.setItem('horse_crm_app_ver', serverVersion);
-      
-      // Очищаем кеш данных, чтобы они тоже обновились
-      localStorage.removeItem(KEY);
-      localStorage.removeItem(KEY_META);
-      
-      // Если поменялся и sw.js, принудительно перезагружаем страницу
-      if ('serviceWorker' in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        for (let reg of regs) { await reg.update(); }
-      }
-      window.location.reload();
-    } else {
-      localStorage.setItem('horse_crm_app_ver', serverVersion); // синхронизируем если ниже
-    }
-  } catch (e) {
-    console.warn('Не удалось проверить версию', e);
-  }
+      // Проверяем обновления каждые 5 минут
+      setInterval(() => { reg.update(); }, 300000); 
+
+      reg.onupdatefound = () => {
+        const installingWorker = reg.installing;
+        installingWorker.onstatechange = () => {
+          if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // Появилось обновление — показываем красивую шторку
+            $('#updateModal').classList.add('show');
+            lockScroll();
+            
+            // Обработчик кнопки "Обновить"
+            $('#updateConfirmBtn').onclick = () => {
+              $('#updateModal').classList.remove('show');
+              unlockScroll();
+              window.location.reload();
+            };
+            
+            // Обработчик кнопки "Позже"
+            $('#updateCancelBtn').onclick = () => {
+              $('#updateModal').classList.remove('show');
+              unlockScroll();
+            };
+          }
+        };
+      };
+    }).catch(err => console.warn('SW:', err));
+  });
 }
   
 // --- Загрузка состояния ---
