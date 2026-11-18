@@ -949,8 +949,9 @@ $('#passSubmitBtn').addEventListener('click', () => {
   const person = state.staff.find(s => s.id === loginAttemptId);
   if (!person) return;
   
-  const inputPass = $('#loginPassword').value;
-  if (inputPass !== person.password) {
+  const inputPass = String($('#loginPassword').value).trim();
+  const realPass = String(person.password || '').trim();
+  if (inputPass !== realPass) {
     toast('Неверный пароль', false);
     $('#loginPassword').value = '';
     $('#loginPassword').focus();
