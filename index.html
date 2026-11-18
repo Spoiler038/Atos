@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1a1410" />
   <link rel="manifest" href="manifest.json" />
 
-  <!-- iOS иконки разных размеров -->
+  <!-- iOS иконка -->
   <link rel="apple-touch-icon" sizes="180x180" href="icons/ios/icon-180x180.png">  
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -807,33 +807,16 @@ const ROLES = {
 
 function renderLogin() {
   const nameSel = $('#loginName');
-  const staffList = state && state.staff ? state.staff : []; // защита от пустого стейта
+  // Защита от пустого стейта
+  const staffList = (state && state.staff) ? state.staff : [];
+  
   nameSel.innerHTML = staffList.map(s =>
     `<option value="${s.id}">${s.name} — ${ROLES[s.role] ? ROLES[s.role].title : s.role}</option>`
   ).join('');
+  
   $('#loginHint').style.display = staffList.length ? 'none' : 'block';
   $('#loginBtn').disabled = !staffList.length;
 }
-
-$('#loginBtn').addEventListener('click', () => {
-  const staffId = $('#loginName').value;
-  if (!staffId) return toast('Выберите сотрудника');
-  const person = state.staff.find(s => s.id === staffId);
-  if (!person) return toast('Сотрудник не найден');
-  const role = person.role;               // роль берём из данных, а не из выбора
-  currentUser = { staffId, role, name: person.name };
-  $('#loginScreen').style.display = 'none';
-  $('#appScreen').style.display = 'flex';
-  $('#topRole').textContent = ROLES[role].title + ' · ' + currentUser.name;
-  startApp();
-});
-
-$('#logoutBtn').addEventListener('click', () => {
-  currentUser = null;
-  $('#appScreen').style.display = 'none';
-  $('#loginScreen').style.display = 'flex';
-  renderLogin();
-});
 
 function allowedViews(role) {
   if (role === 'owner') return ['schedule', 'tasks', 'horses', 'admin'];
@@ -1295,6 +1278,47 @@ bindSwipe($('#viewTasks'), () => {
   renderTasks();
 });
 
+// === ДИАГНОСТИКА GAS ===
+async function testGasConnection() {
+  console.log('⏳ Проверка связи с GAS...');
+  
+  // 1. Проверяем пинг
+  const { data: pingData, error: pingError } = await gasCall({ action: 'ping' });
+  if (pingError) {
+    console.error('❌ Ошибка GAS (ping):', pingError.message);
+    toast('Нет связи с таблицей. Работаем в офлайне.', false);
+    return;
+  }
+  console.log('✅ GAS доступен. Ответ:', pingData);
+  
+  // 2. Запрашиваем данные из таблицы
+  const { data: loadRes, error: loadError } = await gasCall({ action: 'load_all' });
+  
+  if (loadError) {
+    console.error('❌ Ошибка при загрузке данных:', loadError.message);
+    toast('Ошибка загрузки данных', false);
+    return;
+  }
+
+  if (loadRes && loadRes.staff) {
+    console.log('✅ Данные получены. Сотрудников:', loadRes.staff.length);
+    
+    // Обновляем глобальный state
+    state = normalizeState(loadRes);
+    saveState(); // сохраняем в кеш
+    renderLogin(); // перерисовываем список сотрудников на экране входа
+    
+    if (currentUser) renderAllAfterSync();
+    toast('Данные загружены из таблицы', true);
+  } else {
+    console.error('❌ Данные не получены или формат неверен:', loadRes);
+    toast('Ошибка формата данных', false);
+  }
+}
+
+// Запускаем проверку при старте
+testGasConnection(); 
+  
 renderLogin();
   if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
