@@ -365,9 +365,18 @@
       from { opacity: 0; }
       to { opacity: 1; }
     }
+        /* Стили для сплеш-скрина */
     #splashScreen {
       animation: fadeInSplash 0.8s ease-out forwards;
-      /* forwards означает, что после анимации прозрачность останется 1 */
+    }
+    
+    /* На ПК ограничиваем максимальную ширину сплеша */
+    @media (min-width: 768px) {
+      #splashScreen {
+        max-width: 480px; /* Такая же ширина, как у приложения */
+        margin: 0 auto;
+        box-shadow: 0 0 40px rgba(0,0,0,0.8); /* Красивая тень по бокам */
+      }
     }
   </style>
 </head>
@@ -404,9 +413,12 @@
       </div>
     <div class="card">
       <h2>Вход</h2>
-      <div class="field">
+            <div class="field">
         <label>Имя сотрудника</label>
-        <select id="loginName"></select>
+        <div id="loginNameBtn" style="background: var(--input-bg); border: 1px solid var(--border); padding: 11px 12px; border-radius: 12px; color: var(--text); font-size: 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+          <span id="selectedStaffName">Выберите сотрудника...</span>
+          <span style="color: var(--muted); font-size: 12px;">▼</span>
+        </div>
       </div>
       <button class="btn block" id="loginBtn" style="margin-top:8px;">Войти</button>
       <div class="empty" id="loginHint">Сначала добавьте сотрудников в админ-режиме.</div>
@@ -575,6 +587,15 @@
         <button class="btn ghost" id="logoutCancelBtn">Отмена</button>
         <button class="btn danger" id="logoutConfirmBtn">Выйти</button>
       </div>
+    </div>
+  </div>
+
+    <!-- МОДАЛКА ВЫБОРА СОТРУДНИКА -->
+  <div class="overlay" id="staffSelectModal">
+    <div class="sheet">
+      <h3>Кто вы?</h3>
+      <div id="staffSelectList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;"></div>
+      <button class="btn ghost block" onclick="document.getElementById('staffSelectModal').classList.remove('show'); unlockScroll();">Отмена</button>
     </div>
   </div>
 
@@ -957,21 +978,17 @@ const ROLES = {
 /* ===== АВТОРИЗАЦИЯ И ВХОД ===== */
 let loginAttemptId = null;
 
+let selectedStaffId = null;
+
 function renderLogin() {
-  const nameSel = $('#loginName');
-  
-  // 1. Очищаем список (убирает дубли)
-  nameSel.innerHTML = ''; 
-  
-  // 2. Берем список сотрудников и сортируем (owner — первый)
   const staffList = (state && state.staff) ? [...state.staff] : [];
+  
   staffList.sort((a, b) => {
     if (a.role === 'owner' && b.role !== 'owner') return -1;
     if (a.role !== 'owner' && b.role === 'owner') return 1;
     return 0;
   });
-  
-  // 3. Если в базе есть сотрудник с нашим device_id — автовход
+
   if (!currentUser) {
     const me = staffList.find(s => s.device_id === deviceId);
     if (me) {
@@ -981,14 +998,30 @@ function renderLogin() {
     }
   }
 
-  // 4. Заполняем список
-  nameSel.innerHTML = staffList.map(s =>
-    `<option value="${s.id}">${s.name} — ${ROLES[s.role] ? ROLES[s.role].title : s.role}</option>`
-  ).join('');
-  
+  const listBox = $('#staffSelectList');
+  listBox.innerHTML = staffList.map(s => `
+    <button class="btn ghost block" style="text-align: left; justify-content: space-between; padding: 12px; border: 1px solid var(--border);" onclick="selectStaff('${s.id}', '${s.name}', '${ROLES[s.role] ? ROLES[s.role].title : s.role}')">
+      <span>${s.name}</span>
+      <span style="font-size: 12px; color: var(--muted);">${ROLES[s.role] ? ROLES[s.role].title : s.role}</span>
+    </button>
+  `).join('');
+
   $('#loginHint').style.display = staffList.length ? 'none' : 'block';
   $('#loginBtn').disabled = !staffList.length;
 }
+
+function selectStaff(id, name, roleTitle) {
+  selectedStaffId = id;
+  $('#selectedStaffName').textContent = name + ' — ' + roleTitle;
+  $('#staffSelectModal').classList.remove('show');
+  unlockScroll();
+}
+
+$('#loginNameBtn').addEventListener('click', () => {
+  if (!state.staff || state.staff.length === 0) return toast('Нет сотрудников');
+  $('#staffSelectModal').classList.add('show');
+  lockScroll();
+});
 
 // Функция входа по ID (используется и для автовхода, и для кнопки)
 function loginAs(staffId) {
@@ -1027,7 +1060,7 @@ function doLogin(staffId) {
 
 // Обработчик кнопки "Войти" на экране входа
 $('#loginBtn').addEventListener('click', () => {
-  const staffId = $('#loginName').value;
+  const staffId = selectedStaffId;
   if (!staffId) return toast('Выберите сотрудника');
   
   const person = state.staff.find(s => s.id === staffId);
@@ -1641,10 +1674,17 @@ async function testGasConnection() {
   if (loadRes && loadRes.staff) {
     updateSplashProgress(75, 'Обработка данных...');
     
-    // Обновляем глобальный state
+        // Обновляем глобальный state
     state = normalizeState(loadRes);
     saveState(); // сохраняем в кеш
-    renderLogin(); // перерисовываем список сотрудников на экране входа
+    
+    // Перерисовываем интерфейс, только если он уже открыт
+    if (currentUser) {
+      renderAllAfterSync();
+    } else {
+      // Если мы всё еще на экране входа — обновляем список
+      renderLogin();
+    }
     
     if (currentUser) renderAllAfterSync();
     
