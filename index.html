@@ -532,18 +532,8 @@ if (!deviceId) {
 }
 
 const DEFAULT_STATE = {
-  staff: [
-    { id: 's1', name: 'Анна', role: 'trainer' },
-    { id: 's2', name: 'Пётр', role: 'staff' },
-    { id: 's3', name: 'Мария', role: 'staff' }
-  ],
-  horses: [
-    { id: 'h1', name: 'Атос' },
-    { id: 'h2', name: 'Портос' },
-    { id: 'h3', name: 'Арамис' },
-    { id: 'h4', name: 'Артик' },
-    { id: 'h5', name: 'Империя' }
-  ],
+  staff: [],
+  horses: [],
   manipulations: {
     pre: [
       { id: 'p1', name: 'Почистить' },
@@ -859,18 +849,18 @@ let loginAttemptId = null;
 function renderLogin() {
   const nameSel = $('#loginName');
   
-  // Очищаем список перед заполнением (чтобы не было дублей)
+  // 1. Очищаем список (убирает дубли)
   nameSel.innerHTML = ''; 
   
-  // Берем сотрудников и сортируем: сначала owner, потом остальные
+  // 2. Берем список сотрудников и сортируем (owner — первый)
   const staffList = (state && state.staff) ? [...state.staff] : [];
   staffList.sort((a, b) => {
     if (a.role === 'owner' && b.role !== 'owner') return -1;
     if (a.role !== 'owner' && b.role === 'owner') return 1;
-    return 0; // остальных оставляем как есть
+    return 0;
   });
   
-  // Если в базе есть сотрудник с нашим device_id — автовход
+  // 3. Если в базе есть сотрудник с нашим device_id — автовход
   if (!currentUser) {
     const me = staffList.find(s => s.device_id === deviceId);
     if (me) {
@@ -880,6 +870,7 @@ function renderLogin() {
     }
   }
 
+  // 4. Заполняем список
   nameSel.innerHTML = staffList.map(s =>
     `<option value="${s.id}">${s.name} — ${ROLES[s.role] ? ROLES[s.role].title : s.role}</option>`
   ).join('');
