@@ -408,7 +408,7 @@
       <div class="view" id="viewAdmin">
         <div class="card">
           <h2>Сотрудники</h2>
-          <div class="row">
+          <div class="row" style="flex-direction: column;">
             <input id="newStaff" placeholder="Имя сотрудника" />
             <select id="newStaffRole">
               <option value="staff">Сотрудник</option>
@@ -416,7 +416,8 @@
               <option value="trainer">Тренер</option>
               <option value="owner">Владелец</option>
             </select>
-            <button class="btn small" id="addStaffBtn">Добавить</button>
+            <input id="newStaffPass" placeholder="Пароль (необязательно)" />
+            <button class="btn small" id="addStaffBtn" style="margin-top: 4px;">Добавить</button>
           </div>
           <div id="staffAdminList"></div>
         </div>
@@ -844,6 +845,53 @@ function renderLogin() {
   $('#loginBtn').disabled = !staffList.length;
 }
 
+    // Функция входа по ID (используется и для автовхода, и для кнопки)
+function loginAs(staffId) {
+  const person = state.staff.find(s => s.id === staffId);
+  if (!person) return;
+  currentUser = { staffId, role: person.role, name: person.name };
+  $('#loginScreen').style.display = 'none';
+  $('#appScreen').style.display = 'flex';
+  $('#topRole').textContent = ROLES[person.role].title + ' · ' + currentUser.name;
+  startApp();
+}
+
+// Обработчик кнопки "Войти"
+$('#loginBtn').addEventListener('click', () => {
+  const staffId = $('#loginName').value;
+  if (!staffId) return toast('Выберите сотрудника');
+  
+  const person = state.staff.find(s => s.id === staffId);
+  if (!person) return toast('Сотрудник не найден');
+
+  // --- ПРОВЕРКА ПАРОЛЯ ---
+  const inputPass = prompt(`Введите пароль для ${person.name}:`);
+  if (inputPass === null) return; // Нажали "Отмена"
+  
+  if (person.password && inputPass !== person.password) {
+    return toast('Неверный пароль', false);
+  }
+  // ------------------------
+
+  // Привязываем устройство к сотруднику
+  person.device_id = deviceId;
+  
+  // Сохраняем в облако
+  gasCall({
+    action: 'save_all',
+    state: {
+      staff: state.staff,
+      horses: state.horses,
+      manipulations: state.manipulations,
+      lessons: state.lessons,
+      tasks: state.tasks
+    }
+  });
+  
+  saveState();
+  loginAs(staffId);
+});
+
 function allowedViews(role) {
   if (role === 'owner') return ['schedule', 'tasks', 'horses', 'admin'];
   if (role === 'trainer') return ['schedule', 'tasks', 'horses'];
@@ -1196,9 +1244,10 @@ $$('#manipPhaseTabs button').forEach(b => {
 });
 
 function renderAdmin() {
-  $('#staffAdminList').innerHTML = state.staff.map(s => `
+    $('#staffAdminList').innerHTML = state.staff.map(s => `
     <div class="list-item">
       <span class="name">${s.name}</span>
+      <span style="font-size:10px; color:var(--muted);">${s.password || '—'}</span>
       <button class="badge" data-role-staff="${s.id}">${ROLES[s.role] ? ROLES[s.role].title : s.role}</button>
       <button class="btn small ghost" data-del-staff="${s.id}">✕</button>
     </div>
@@ -1242,9 +1291,13 @@ function renderAdmin() {
 $('#addStaffBtn').addEventListener('click', () => {
   const name = $('#newStaff').value.trim();
   const role = $('#newStaffRole').value;
+  const password = $('#newStaffPass').value.trim();
   if (!name) return;
-  state.staff.push({ id: uid('s'), name, role });
-  saveState(); $('#newStaff').value = ''; renderAdmin();
+  state.staff.push({ id: uid('s'), name, role, password, device_id: '' });
+  saveState(); 
+  $('#newStaff').value = ''; 
+  $('#newStaffPass').value = '';
+  renderAdmin();
 });
 $('#addHorseBtn').addEventListener('click', () => {
   const name = $('#newHorse').value.trim();
