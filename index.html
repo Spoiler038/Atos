@@ -11,6 +11,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Конный клуб — CRM</title>
+  <link rel="icon" type="image/png" href="icons/android/icon-192x192.png">
   <style>
     :root {
       --bg: #1a1410;
@@ -338,11 +339,10 @@
   <div id="toast" class="toast"></div>
 
     <div id="loginScreen" style="max-width:480px;margin:0 auto;padding:24px 16px;min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
-    <div style="text-align:center;margin-bottom:24px;">
-      <div style="font-size:48px;line-height:1;margin-bottom:8px;">🐎</div>
+        <div style="text-align:center;margin-bottom:24px;">
+      <img src="icons/android/icon-192x192.png" alt="Логотип клуба" style="width: 96px; height: 96px; margin-bottom: 12px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));">
       <h1 style="font-size:1.3rem;margin:0 0 4px;">Конный клуб — CRM</h1>
-      <div style="font-size:12px;color:var(--muted);">Прототип · данные на устройстве</div>
-    </div>
+      </div>
     <div class="card">
       <h2>Вход</h2>
       <div class="field">
@@ -804,11 +804,12 @@ const ROLES = {
 
 function renderLogin() {
   const nameSel = $('#loginName');
-  nameSel.innerHTML = state.staff.map(s =>
+  const staffList = state && state.staff ? state.staff : []; // защита от пустого стейта
+  nameSel.innerHTML = staffList.map(s =>
     `<option value="${s.id}">${s.name} — ${ROLES[s.role] ? ROLES[s.role].title : s.role}</option>`
   ).join('');
-  $('#loginHint').style.display = state.staff.length ? 'none' : 'block';
-  $('#loginBtn').disabled = !state.staff.length;
+  $('#loginHint').style.display = staffList.length ? 'none' : 'block';
+  $('#loginBtn').disabled = !staffList.length;
 }
 
 $('#loginBtn').addEventListener('click', () => {
