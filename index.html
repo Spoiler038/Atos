@@ -85,8 +85,17 @@
     .sync-btn.syncing   { color: #fbbf24; border-color: #b45309; }   /* идёт */
     .sync-btn.error     { color: #fca5a5; border-color: #991b1b; }   /* ошибка */
     .sync-btn.offline   { color: #94a3b8; border-color: #334155; }   /* нет сети */
-    .sync-btn.syncing #syncIcon { animation: spinCloud 1s linear infinite; }
-    @keyframes spinCloud { to { transform: rotate(360deg); } }
+        /* Пульсация облака при синхронизации */
+    @keyframes pulseCloud {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.15); color: #d97706; } /* Увеличиваем и красим в оранжевый (--accent-2) */
+      100% { transform: scale(1); }
+    }
+    
+    .sync-btn.syncing #syncIcon {
+      animation: pulseCloud 1.5s ease-in-out infinite;
+      /* Сама кнопка меняет цвет контура через класс .syncing */
+    }
 
     .content {
       flex: 1;
