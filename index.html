@@ -866,6 +866,14 @@ function normalizeState(s) {
   return s;
 }
 
+      async function hashPassword(password) {
+  if (!password) return '';
+  const msgBuffer = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // --- Фоновая синхронизация: только если версия в GAS больше локальной ---
 async function syncFromCloudInBackground() {
   if (!navigator.onLine) return;
@@ -904,10 +912,11 @@ async function syncFromCloudInBackground() {
 
 // --- Сохранение: мгновенно в кеш, потом дебаунс-отправка в GAS ---
 function saveState() {
-  // 1) Всегда мгновенно в localStorage — UI не ждёт сеть
   localStorage.setItem(KEY, JSON.stringify(state));
+  
+  // Помечаем, что есть несинхронизированные изменения
+  localStorage.setItem('horse_crm_pending', 'true');
 
-  // 2) Дебаунс-отправка в GAS (объединяем частые изменения)
   if (_saveTimer) clearTimeout(_saveTimer);
   _saveTimer = setTimeout(pushToCloud, 1200);
 }
@@ -935,6 +944,7 @@ async function pushToCloud() {
     if (error) throw error;
     if (data && data.version) {
       writeMeta({ version: data.version, lastSync: Date.now() });
+      localStorage.removeItem('horse_crm_pending'); // Успешно отправили
     }
   } catch (e) {
     // Не критично: останемся на локальном кеше, отправим позже
@@ -1015,7 +1025,13 @@ async function manualSync() {
 }
 
 $('#syncBtn').addEventListener('click', manualSync);
-window.addEventListener('online',  () => { setSyncStatus(''); });
+window.addEventListener('online', () => { 
+  setSyncStatus('');
+  if (localStorage.getItem('horse_crm_pending') === 'true') {
+    console.log('🌐 Появилась сеть. Отправляем данные...');
+    pushToCloud();
+  }
+});
 window.addEventListener('offline', () => { setSyncStatus('offline'); });
 if (!navigator.onLine) setSyncStatus('offline');
 
@@ -1160,20 +1176,28 @@ $('#passCancelBtn').addEventListener('click', () => {
 });
 
 // Кнопка "Войти" в шторке пароля
-$('#passSubmitBtn').addEventListener('click', () => {
+$('#passSubmitBtn').addEventListener('click', async () => {
   const person = state.staff.find(s => s.id === loginAttemptId);
   if (!person) return;
   
   const inputPass = String($('#loginPassword').value).trim();
-  const realPass = String(person.password || '').trim();
-  if (inputPass !== realPass) {
+  
+  // Если у человека нет пароля — пускаем сразу
+  if (!person.password_hash) {
+    $('#passwordModal').classList.remove('show');
+    unlockScroll();
+    doLogin(loginAttemptId);
+    return;
+  }
+
+  const inputHash = await hashPassword(inputPass);
+  if (inputHash !== person.password_hash) {
     toast('Неверный пароль', false);
     $('#loginPassword').value = '';
     $('#loginPassword').focus();
     return;
   }
   
-  // Успешный вход
   $('#passwordModal').classList.remove('show');
   unlockScroll();
   doLogin(loginAttemptId);
@@ -1319,7 +1343,7 @@ function renderCalendar() {
       const isOther = d.getMonth() !== m;
       const isToday = sameDay(d, new Date());
       const dayLessons = lessons.filter(l => l.date === ds);
-      html += `<div class="month-cell ${isOther ? 'other' : ''} ${isToday ? 'today' : ''} data-date="${ds}"">
+      html += `<div class="month-cell ${isOther ? 'other' : ''} ${isToday ? 'today' : ''}" data-date="${ds}">`;
         <div class="num">${d.getDate()}</div>
         ${dayLessons.slice(0, 3).map(l => `<div class="ev" data-lesson="${l.id}">${l.time} ${horseName(l.horseId)}</div>`).join('')}
         ${dayLessons.length > 3 ? `<div class="ev" style="background:var(--panel-2);color:var(--muted);">+${dayLessons.length - 3}</div>` : ''}
@@ -1709,13 +1733,13 @@ function renderAdmin() {
   });
 }
 
-$('#addStaffBtn').addEventListener('click', () => {
+$('#addStaffBtn').addEventListener('click', async () => {
   const name = $('#newStaff').value.trim();
   const password = $('#newStaffPass').value.trim();
   if (!name) return;
   
-  // Роль по умолчанию — staff
-  state.staff.push({ id: uid('s'), name, role: 'staff', password, device_id: '' });
+  const password_hash = await hashPassword(password); // Хешируем!
+  state.staff.push({ id: uid('s'), name, role: 'staff', password_hash, device_id: '' });
   
   saveState(); 
   $('#newStaff').value = ''; 
