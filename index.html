@@ -1250,12 +1250,13 @@ $('#logoutConfirmBtn').addEventListener('click', () => {
   $('#logoutModal').classList.remove('show');
   unlockScroll();
 
-    if (currentUser) {
+  if (currentUser) {
     const person = state.staff.find(s => s.id === currentUser.staffId);
     if (person) {
       person.device_id = ''; // Отвязываем устройство
       // Дополнительно стираем device_id из localStorage
       localStorage.removeItem('horse_crm_device_id');
+      
       gasCall({
         action: 'save_all',
         state: {
@@ -1265,20 +1266,21 @@ $('#logoutConfirmBtn').addEventListener('click', () => {
           lessons: state.lessons,
           tasks: state.tasks
         }
-          // Сбрасываем выбранного сотрудника
-  selectedStaffId = null;
-  $('#selectedStaffName').textContent = 'Выберите из списка...';
       });
+      
       saveState();
     }
   }
+  
+  // Сбрасываем выбранного сотрудника (теперь это ВНЕ объекта state)
+  selectedStaffId = null;
+  $('#selectedStaffName').textContent = 'Выберите из списка...';
   
   currentUser = null;
   $('#appScreen').style.display = 'none';
   $('#loginScreen').style.display = 'flex';
   renderLogin();
 });
-
 
 function allowedViews(role) {
   if (role === 'owner') return ['schedule', 'tasks', 'horses', 'admin'];
