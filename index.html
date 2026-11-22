@@ -417,6 +417,34 @@
       animation: buttonPop 0.25s ease;
       opacity: 0.8; /* Легкое затемнение при нажатии */
     }
+
+        /* Центрирование модального окна */
+    .overlay.center-modal {
+      align-items: center;
+    }
+    .overlay.center-modal .sheet {
+      border-radius: 20px;
+      border-bottom: 1px solid var(--border);
+      max-width: 400px; /* Чтобы на ПК не было слишком широко */
+      margin: 0 16px;
+      max-height: 80vh;
+    }
+
+        /* Блокируем сдвиг фона при появлении клавиатуры */
+    body {
+      position: fixed;
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+      top: 0;
+      left: 0;
+    }
+
+    /* Внутренние блоки должны прокручиваться независимо */
+    #loginScreen, .content {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
   </style>
 </head>
 <body>
@@ -520,12 +548,7 @@
           <h2>Сотрудники</h2>
           <div class="row" style="flex-direction: column;">
             <input id="newStaff" placeholder="Имя сотрудника" />
-            <select id="newStaffRole">
-              <option value="staff">Сотрудник</option>
-              <option value="groom">Конюх</option>
-              <option value="trainer">Тренер</option>
-              <option value="owner">Владелец</option>
-            </select>
+            <div class="empty" style="font-size: 11px; padding: 8px 0 0 0; text-align: left;">Новый сотрудник создается с ролью «Сотрудник». Роль можно изменить нажатием на неё в списке ниже.</div>
             <input id="newStaffPass" placeholder="Пароль (необязательно)" />
             <button class="btn small" id="addStaffBtn" style="margin-top: 4px;">Добавить</button>
           </div>
@@ -600,7 +623,7 @@
   </div>
 
     <!-- МОДАЛКА ВВОДА ПАРОЛЯ -->
-  <div class="overlay" id="passwordModal">
+  <div class="overlay center-modal" id="passwordModal">
     <div class="sheet">
       <h3>Вход в систему</h3>
       <div class="field">
@@ -630,7 +653,7 @@
   </div>
 
     <!-- МОДАЛКА ВЫБОРА СОТРУДНИКА -->
-  <div class="overlay" id="staffSelectModal">
+  <div class="overlay center-modal" id="staffSelectModal">
     <div class="sheet">
       <h3>Кто вы?</h3>
       <div id="staffSelectList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;"></div>
@@ -650,6 +673,15 @@
         <button class="btn ghost" id="updateCancelBtn">Позже</button>
         <button class="btn" id="updateConfirmBtn">Обновить</button>
       </div>
+    </div>
+  </div>
+
+    <!-- МОДАЛКА НАЗНАЧЕНИЯ ИСПОЛНИТЕЛЯ -->
+  <div class="overlay center-modal" id="assignModal">
+    <div class="sheet">
+      <h3>Назначить исполнителя</h3>
+      <div id="assignStaffList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;"></div>
+      <button class="btn ghost block" onclick="closeAssignModal()">Отмена</button>
     </div>
   </div>
 
@@ -1287,7 +1319,7 @@ function renderCalendar() {
       const isOther = d.getMonth() !== m;
       const isToday = sameDay(d, new Date());
       const dayLessons = lessons.filter(l => l.date === ds);
-      html += `<div class="month-cell ${isOther ? 'other' : ''} ${isToday ? 'today' : ''}">
+      html += `<div class="month-cell ${isOther ? 'other' : ''} ${isToday ? 'today' : ''} data-date="${ds}"">
         <div class="num">${d.getDate()}</div>
         ${dayLessons.slice(0, 3).map(l => `<div class="ev" data-lesson="${l.id}">${l.time} ${horseName(l.horseId)}</div>`).join('')}
         ${dayLessons.length > 3 ? `<div class="ev" style="background:var(--panel-2);color:var(--muted);">+${dayLessons.length - 3}</div>` : ''}
@@ -1295,8 +1327,22 @@ function renderCalendar() {
     }
     html += '</div>';
     area.innerHTML = html;
-    area.querySelectorAll('.ev[data-lesson]').forEach(el => {
-      el.onclick = (e) => { e.stopPropagation(); openLessonModal(el.dataset.lesson); };
+        // Делаем кликабельными все ячейки месяца
+    area.querySelectorAll('.month-cell').forEach(cell => {
+      cell.onclick = (e) => {
+        const dateStr = cell.dataset.date; // Нужно добавить этот атрибут в шаблоне
+        if (!dateStr) return;
+        
+        // Мгновенная визуальная реакция
+        cell.style.background = '#5a4229';
+        setTimeout(() => {
+          cell.style.background = ''; // Сбрасываем
+          calMode = 'day';
+          calCursor = toDate(dateStr);
+          $$('.cal-modes button').forEach(b => b.classList.toggle('active', b.dataset.mode === 'day'));
+          renderCalendar();
+        }, 150);
+      };
     });
 
   } else if (calMode === 'week') {
@@ -1373,7 +1419,8 @@ function openLessonModal(lessonId) {
   editingLessonId = lessonId || null;
   const l = lessonId ? state.lessons.find(x => x.id === lessonId) : null;
   $('#lessonModalTitle').textContent = l ? 'Редактировать тренировку' : 'Новая тренировка';
-  $('#lessonDate').value = l ? l.date : ymd(calCursor);
+  let defaultDate = ymd(calCursor);   
+  if (calMode === 'week' && openWeekDay) {     defaultDate = openWeekDay;   }   $('#lessonDate').value = l ? l.date : defaultDate;
   $('#lessonTime').value = l ? l.time : '10:00';
   $('#lessonHorse').innerHTML = state.horses.map(h => `<option value="${h.id}" ${l && l.horseId === h.id ? 'selected' : ''}>${h.name}</option>`).join('');
   const trainers = state.staff.filter(s => s.role === 'trainer');
@@ -1452,6 +1499,7 @@ function renderTasks() {
   const isStaff = currentUser.role === 'staff';
   const canAssign = currentUser.role === 'owner' || currentUser.role === 'trainer';
 
+  // Собираем все задачи в один массив
   const rows = [];
   todayLessons.forEach(l => {
     state.tasks.filter(t => t.lessonId === l.id && t.phase === tasksPhase).forEach(t => {
@@ -1465,26 +1513,51 @@ function renderTasks() {
     return;
   }
 
-  list.innerHTML = rows.map(({ l, t }) => {
-    const m = state.manipulations[t.phase].find(x => x.id === t.manipId) || { name: '—' };
-    const mine = t.staffId === currentUser.staffId;
-    const staffOpts = state.staff
-      .filter(s => s.role !== 'owner')
-      .map(s => `<option value="${s.id}" ${t.staffId === s.id ? 'selected' : ''}>${s.name}</option>`)
-      .join('');
-    return `<div class="manip ${t.done ? 'done' : ''}">
-      <input type="checkbox" data-task="${t.id}" ${t.done ? 'checked' : ''} ${isStaff && !mine ? 'disabled' : ''} />
-      <span class="label">
-        ${m.name}
-        <div class="who">${horseName(l.horseId)} · ${l.time} · ${staffName(t.staffId)}</div>
-      </span>
-      ${canAssign ? `<select class="assign-sel" data-task="${t.id}"><option value="">— кто —</option>${staffOpts}</select>` : ''}
-      ${mine ? '<span class="badge mine">моё</span>' : ''}
-      ${t.done && t.time ? `<span class="badge">${t.time}</span>` : ''}
-      ${t.done ? '<span class="badge done">готово</span>' : ''}
-    </div>`;
-  }).join('');
+  // Группируем задачи по лошадям
+  const grouped = {};
+  rows.forEach(({ l, t }) => {
+    if (!grouped[l.horseId]) grouped[l.horseId] = [];
+    grouped[l.horseId].push({ l, t });
+  });
 
+  let html = '';
+  for (const horseId in grouped) {
+    const horseTasks = grouped[horseId];
+    const hName = horseName(horseId);
+    
+    html += `<div class="card" style="margin-bottom:10px; padding: 0;">
+      <div class="day-block" style="border: none; border-bottom: 1px solid var(--border); border-radius: 16px 16px 0 0; cursor: pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.classList.toggle('today-block');">
+        <div class="day-title" style="margin: 0; font-size: 14px;">
+          🐎 ${hName} <span class="badge">${horseTasks.length} задач</span>
+        </div>
+      </div>
+      <div style="display: none; padding: 10px 14px;">
+        ${horseTasks.map(({ l, t }) => {
+          const m = state.manipulations[t.phase].find(x => x.id === t.manipId) || { name: '—' };
+          const mine = t.staffId === currentUser.staffId;
+          const staffOpts = state.staff
+            .filter(s => s.role !== 'owner')
+            .map(s => `<option value="${s.id}" ${t.staffId === s.id ? 'selected' : ''}>${s.name}</option>`)
+            .join('');
+          return `<div class="manip ${t.done ? 'done' : ''}">
+            <input type="checkbox" data-task="${t.id}" ${t.done ? 'checked' : ''} ${isStaff && !mine ? 'disabled' : ''} />
+            <span class="label">
+              ${m.name}
+              <div class="who">${l.time} · ${staffName(t.staffId)}</div>
+            </span>
+            ${canAssign ? `<button class="btn small ghost" onclick="openAssignModal('${t.id}')">${t.staffId ? staffName(t.staffId) : '— кто —'}</button>` : ''}
+            ${mine ? '<span class="badge mine">моё</span>' : ''}
+            ${t.done && t.time ? `<span class="badge">${t.time}</span>` : ''}
+            ${t.done ? '<span class="badge done">готово</span>' : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+  
+  list.innerHTML = html;
+
+  // Вешаем обработчики на чекбоксы
   list.querySelectorAll('input[type=checkbox]').forEach(cb => {
     cb.addEventListener('change', (e) => {
       const task = state.tasks.find(x => x.id === e.target.dataset.task);
@@ -1495,19 +1568,49 @@ function renderTasks() {
         task.time = pad(now.getHours()) + ':' + pad(now.getMinutes());
       }
       saveState();
-      renderTasks();
+      renderTasks(); // Перерисовываем, чтобы обновить статус
     });
   });
+}
 
-  list.querySelectorAll('.assign-sel').forEach(sel => {
-    sel.addEventListener('change', (e) => {
-      const t = state.tasks.find(x => x.id === e.target.dataset.task);
-      if (!t) return;
-      t.staffId = e.target.value || null;
-      saveState();
-      renderTasks();
-    });
-  });
+// Модалка выбора сотрудника в задачах
+  
+let assigningTaskId = null;
+
+function openAssignModal(taskId) {
+  assigningTaskId = taskId;
+  const listBox = $('#assignStaffList');
+  listBox.innerHTML = state.staff
+    .filter(s => s.role !== 'owner')
+    .map(s => `
+      <button class="btn ghost block" style="text-align: left; justify-content: space-between; padding: 12px; border: 1px solid var(--border);" onclick="assignStaffToTask('${s.id}')">
+        <span>${s.name}</span>
+        <span style="font-size: 12px; color: var(--muted);">${ROLES[s.role]?.title || s.role}</span>
+      </button>
+    `).join('') + `
+      <button class="btn ghost block" style="text-align: left; justify-content: space-between; padding: 12px; border: 1px solid var(--border);" onclick="assignStaffToTask('')">
+        <span>Снять назначение</span>
+      </button>
+    `;
+  $('#assignModal').classList.add('show');
+  lockScroll();
+}
+
+function closeAssignModal() {
+  $('#assignModal').classList.remove('show');
+  unlockScroll();
+  assigningTaskId = null;
+}
+
+function assignStaffToTask(staffId) {
+  if (!assigningTaskId) return;
+  const t = state.tasks.find(x => x.id === assigningTaskId);
+  if (t) {
+    t.staffId = staffId || null;
+    saveState();
+    renderTasks();
+  }
+  closeAssignModal();
 }
 
 /* ===== ЛОШАДИ ===== */
@@ -1608,10 +1711,12 @@ function renderAdmin() {
 
 $('#addStaffBtn').addEventListener('click', () => {
   const name = $('#newStaff').value.trim();
-  const role = $('#newStaffRole').value;
   const password = $('#newStaffPass').value.trim();
   if (!name) return;
-  state.staff.push({ id: uid('s'), name, role, password, device_id: '' });
+  
+  // Роль по умолчанию — staff
+  state.staff.push({ id: uid('s'), name, role: 'staff', password, device_id: '' });
+  
   saveState(); 
   $('#newStaff').value = ''; 
   $('#newStaffPass').value = '';
