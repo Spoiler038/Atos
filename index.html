@@ -961,9 +961,9 @@ async function pushToCloud() {
       writeMeta({ version: data.version, lastSync: Date.now() });
       localStorage.removeItem('horse_crm_pending'); // Успешно отправили
     }
-  } catch (e) {
-    // Не критично: останемся на локальном кеше, отправим позже
-    // Можно здесь сохранить флаг «есть несохранённые изменения»
+    } catch (e) {
+    console.error('Ошибка синхронизации:', e);
+    localStorage.setItem('horse_crm_pending', 'true'); // Помечаем, что не ушло
   } finally {
     _savingNow = false;
     setSyncStatus('synced');
