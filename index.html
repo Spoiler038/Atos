@@ -1502,8 +1502,39 @@ $('#lessonSave').addEventListener('click', () => {
   const trainerId = $('#lessonTrainer').value;
   const student = $('#lessonStudent').value.trim();
   const duration = Number($('#lessonDuration').value) || 60;
-  if (!date || !time || !horseId || !trainerId) return toast('Заполните обязательные поля');
 
+  // 1. ПРОВЕРКА НА ЗАПОЛНЕНИЕ
+  if (!date || !time || !horseId || !trainerId) {
+    return toast('Заполните все обязательные поля', false);
+  }
+
+  // 2. ПРОВЕРКА НА КОНФЛИКТ (лошадь занята в это время)
+  // Считаем время окончания новой тренировки
+  const startMinutes = parseInt(time.split(':')[0]) * 60 + parseInt(time.split(':')[1]);
+  const endMinutes = startMinutes + duration;
+
+  const conflict = state.lessons.find(l => {
+    // Пропускаем саму себя, если мы редактируем существующую тренировку
+    if (editingLessonId && l.id === editingLessonId) return false;
+    
+    // Проверяем только ту же дату и ту же лошадь
+    if (l.date !== date || l.horseId !== horseId) return false;
+
+    // Считаем время существующей тренировки
+    const lStart = parseInt(l.time.split(':')[0]) * 60 + parseInt(l.time.split(':')[1]);
+    const lEnd = lStart + (l.duration || 60);
+
+    // Проверяем пересечение отрезков времени
+    // Если начало новой < конца старой И конец новой > начала старой
+    return (startMinutes < lEnd && endMinutes > lStart);
+  });
+
+  if (conflict) {
+    const hName = horseName(horseId);
+    return toast(`Конфликт: ${hName} уже занята в ${conflict.time}`, false);
+  }
+
+  // 3. СОХРАНЕНИЕ
   if (editingLessonId) {
     const l = state.lessons.find(x => x.id === editingLessonId);
     if (!l) return;
@@ -1511,6 +1542,7 @@ $('#lessonSave').addEventListener('click', () => {
   } else {
     const newId = uid('l');
     state.lessons.push({ id: newId, date, time, horseId, trainerId, student, duration });
+    // Создаем задачи для новой тренировки
     ['pre', 'post'].forEach(phase => {
       state.manipulations[phase].forEach(m => {
         state.tasks.push({
@@ -1520,12 +1552,13 @@ $('#lessonSave').addEventListener('click', () => {
       });
     });
   }
+
   saveState();
   closeLessonModal();
   toast(editingLessonId ? 'Тренировка обновлена' : 'Тренировка добавлена', true);
   renderCalendar();
 });
-
+  
 $('#lessonDelete').addEventListener('click', () => {
   if (!editingLessonId) return;
   // Закрываем модалку редактирования и открываем модалку подтверждения
