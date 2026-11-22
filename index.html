@@ -757,6 +757,8 @@ let currentUser = null;
 let calMode = 'month';
 let calCursor = new Date();
 let tasksDate = new Date(); // Текущая дата для раздела Задачи
+let openHorses = new Set(); // ID открытых лошадей
+let openLessons = new Set(); // ID открытых тренировок
 let openWeekDay = null;
 let editingLessonId = null;
 
@@ -1733,11 +1735,28 @@ function closeAssignModal() {
 function assignStaffToTask(staffId) {
   if (!assigningTaskId) return;
   const t = state.tasks.find(x => x.id === assigningTaskId);
-  if (t) {
-    t.staffId = staffId || null;
-    saveState();
-    renderTasks();
+  if (!t) return;
+  
+  t.staffId = staffId || null;
+  
+  // Если назначили сотрудника (не снимаем), и это первая манипуляция с исполнителем
+  if (staffId) {
+    // Ищем все задачи этой же тренировки и фазы, у которых нет исполнителя
+    const sameLessonTasks = state.tasks.filter(x => 
+      x.lessonId === t.lessonId && x.phase === t.phase && x.id !== t.id
+    );
+    
+    // Проверяем, есть ли уже назначенные
+    const hasAssigned = sameLessonTasks.some(x => x.staffId);
+    
+    if (!hasAssigned) {
+      // Если ни у кого нет исполнителя — назначаем всем
+      sameLessonTasks.forEach(x => { x.staffId = staffId; });
+    }
   }
+  
+  saveState();
+  renderTasks();
   closeAssignModal();
 }
 
@@ -2024,8 +2043,20 @@ $('#tasksNextDate').addEventListener('click', () => {
 // При переключении вкладки "Задачи" сбрасываем на сегодня
 $$('#bottomNav .nav-btn').forEach(b => {
   b.addEventListener('click', () => {
-    if (b.dataset.view === 'tasks' && !b.classList.contains('active')) {
-      tasksDate = new Date(); // Сброс на сегодня
+    const wasActive = b.classList.contains('active');
+    const view = b.dataset.view;
+    
+    // Если мы уже в Задачах и нажали на них снова — сбрасываем дату
+    if (view === 'tasks' && wasActive) {
+      tasksDate = new Date();
+      renderTasks();
+    }
+    // Если переходим в Задачи из другого раздела — сбрасываем на сегодня
+    else if (view === 'tasks' && !wasActive) {
+      tasksDate = new Date();
+      switchView(view);
+    } else {
+      switchView(view);
     }
   });
 });
