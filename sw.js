@@ -1,5 +1,5 @@
 /* Service Worker: кешируем оболочку, остальное — network-first */
-const CACHE_VERSION = 'kcrm-v8';
+const CACHE_VERSION = 'kcrm-v9';
 const PRECACHE = [
   './',
   './index.html',
