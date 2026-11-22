@@ -97,9 +97,10 @@
       /* Сама кнопка меняет цвет контура через класс .syncing */
     }
 
-    .content {
+      .content {
       flex: 1;
-      overflow-y: auto;
+      overflow-y: scroll; /* Всегда показываем скролл */
+      scrollbar-gutter: stable; /* Бронируем место под него */
       padding: 0 12px 12px;
       -webkit-overflow-scrolling: touch;
     }
@@ -1249,10 +1250,12 @@ $('#logoutConfirmBtn').addEventListener('click', () => {
   $('#logoutModal').classList.remove('show');
   unlockScroll();
 
-  if (currentUser) {
+    if (currentUser) {
     const person = state.staff.find(s => s.id === currentUser.staffId);
     if (person) {
       person.device_id = ''; // Отвязываем устройство
+      // Дополнительно стираем device_id из localStorage
+      localStorage.removeItem('horse_crm_device_id');
       gasCall({
         action: 'save_all',
         state: {
@@ -1262,6 +1265,9 @@ $('#logoutConfirmBtn').addEventListener('click', () => {
           lessons: state.lessons,
           tasks: state.tasks
         }
+          // Сбрасываем выбранного сотрудника
+  selectedStaffId = null;
+  $('#selectedStaffName').textContent = 'Выберите из списка...';
       });
       saveState();
     }
@@ -1645,25 +1651,26 @@ function renderTasks() {
     const horseLessons = grouped[horseId];
     let totalTasks = 0;
     for (const lid in horseLessons) totalTasks += horseLessons[lid].tasks.length;
-
+    const isHorseOpen = openHorses.has(horseId);
+    
     html += `<div class="card" style="margin-bottom:10px; padding: 0;">
       <!-- УРОВЕНЬ 1: ЛОШАДЬ -->
-      <div class="day-block" style="border: none; border-bottom: 1px solid var(--border); border-radius: 16px 16px 0 0; cursor: pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.classList.toggle('today-block');">
+      <div class="day-block ${isHorseOpen ? 'today-block' : ''}" style="border: none; border-bottom: 1px solid var(--border); border-radius: 16px 16px 0 0; cursor: pointer;" onclick="toggleHorse('${horseId}', this)">
         <div class="day-title" style="margin: 0; font-size: 14px;">
           🐎 ${hName} <span class="badge">${totalTasks} задач</span>
         </div>
       </div>
       
-      <div style="display: none; padding: 0 10px 10px 10px;">
+      <div style="display: ${isHorseOpen ? 'block' : 'none'}; padding: 0 10px 10px 10px;">
         ${Object.values(horseLessons).map(({ lesson, tasks }) => {
           // УРОВЕНЬ 2: ТРЕНИРОВКА
           return `<div style="margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden;">
-            <div style="background: var(--bg); padding: 8px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none';">
+            <div style="background: var(--bg); padding: 8px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleLesson('${lesson.id}', this)">
               <span style="font-size: 13px; font-weight: 600; color: var(--accent-2);">${lesson.time} (Тренер: ${staffName(lesson.trainerId)})</span>
               <span style="font-size: 11px; color: var(--muted);">${tasks.length} задач ▼</span>
             </div>
             
-            <div style="display: none; padding: 0 12px; background: var(--panel);">
+            <div style="display: ${openLessons.has(lesson.id) ? 'block' : 'none'}; padding: 0 12px; background: var(--panel);">
               ${tasks.map(t => {
                 const m = state.manipulations[t.phase].find(x => x.id === t.manipId) || { name: '—' };
                 const mine = t.staffId === currentUser.staffId;
@@ -1703,6 +1710,28 @@ function renderTasks() {
     });
   });
 }
+
+  function toggleHorse(horseId, el) {
+  if (openHorses.has(horseId)) {
+    openHorses.delete(horseId);
+    el.nextElementSibling.style.display = 'none';
+  } else {
+    openHorses.add(horseId);
+    el.nextElementSibling.style.display = 'block';
+  }
+  el.classList.toggle('today-block');
+}
+
+function toggleLesson(lessonId, el) {
+  if (openLessons.has(lessonId)) {
+    openLessons.delete(lessonId);
+    el.nextElementSibling.style.display = 'none';
+  } else {
+    openLessons.add(lessonId);
+    el.nextElementSibling.style.display = 'block';
+  }
+}
+  
 // Модалка выбора сотрудника в задачах
   
 let assigningTaskId = null;
