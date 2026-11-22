@@ -283,8 +283,13 @@
       color: var(--text);
       font-size: 12px; min-width: 0;
     }
-    .manip input[type="checkbox"] {
+        .manip input[type="checkbox"] {
       width: 20px; height: 20px; accent-color: var(--accent); flex-shrink: 0;
+      transition: accent-color 0.2s ease;
+    }
+    /* Если задача выполнена, чекбокс становится зеленым */
+    .manip.done input[type="checkbox"] {
+      accent-color: var(--success);
     }
     .manip.done .label { text-decoration: line-through; opacity: .55; }
     .manip .who { font-size: 11px; color: var(--muted); }
@@ -1709,7 +1714,6 @@ function renderTasks() {
                   ${canAssign ? `<button class="btn small ghost" onclick="openAssignModal('${t.id}')">${t.staffId ? staffName(t.staffId) : '— кто —'}</button>` : ''}
                   ${mine ? '<span class="badge mine">моё</span>' : ''}
                   ${t.done && t.time ? `<span class="badge">${t.time}</span>` : ''}
-                  ${t.done ? '<span class="badge done">готово</span>' : ''}
                 </div>`;
               }).join('')}
             </div>
