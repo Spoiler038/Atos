@@ -1746,6 +1746,8 @@ $('#addStaffBtn').addEventListener('click', async () => {
   $('#newStaffPass').value = '';
   renderAdmin();
 });
+
+  
 $('#addHorseBtn').addEventListener('click', () => {
   const name = $('#newHorse').value.trim();
   if (!name) return;
@@ -1816,11 +1818,12 @@ async function testGasConnection() {
   
   // 1. Проверяем пинг
   const { data: pingData, error: pingError } = await gasCall({ action: 'ping' });
-  if (pingError) {
+    if (pingError) {
     updateSplashProgress(100, 'Нет сети. Загружаем офлайн...');
     console.error('❌ Ошибка GAS (ping):', pingError.message);
     setTimeout(() => {
       hideSplash();
+      renderLogin(); // Явно отрисовываем список сотрудников из кеша
       toast('Нет связи с сервером. Работаем в офлайне.', false);
     }, 1000);
     return;
