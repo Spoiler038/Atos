@@ -1623,8 +1623,8 @@ function renderTasks() {
   
   const dayLessons = state.lessons.filter(l => l.date === dateStr);
   const list = $('#tasksList');
-  const isStaff = currentUser.role === 'staff';
-  const canAssign = currentUser.role === 'owner' || currentUser.role === 'trainer';
+  const isStaff = currentUser.role === 'staff' || currentUser.role === 'groom';
+  const canAssign = currentUser.role === 'owner';
 
   const rows = [];
   dayLessons.forEach(l => {
@@ -1639,13 +1639,37 @@ function renderTasks() {
     return;
   }
 
-  // Группируем по лошадям, затем по тренировкам
+    // Группируем по лошадям, затем по тренировкам
   const grouped = {};
   rows.forEach(({ l, t }) => {
     if (!grouped[l.horseId]) grouped[l.horseId] = {};
     if (!grouped[l.horseId][l.id]) grouped[l.horseId][l.id] = { lesson: l, tasks: [] };
     grouped[l.horseId][l.id].tasks.push(t);
   });
+
+  // Если это обычный сотрудник/конюх — удаляем лошадей и тренировки, где у него нет задач
+  if (isStaff) {
+    for (const horseId in grouped) {
+      let hasTasksForHorse = false;
+      
+      for (const lessonId in grouped[horseId]) {
+        const lessonData = grouped[horseId][lessonId];
+        // Проверяем, есть ли в этой тренировке хотя бы одна задача, назначенная на текущего пользователя
+        const hasMyTasks = lessonData.tasks.some(t => t.staffId === currentUser.staffId);
+        
+        if (!hasMyTasks) {
+          delete grouped[horseId][lessonId]; // Удаляем тренировку без задач
+        } else {
+          hasTasksForHorse = true;
+        }
+      }
+      
+      // Если у лошади не осталось ни одной тренировки с нашими задачами — удаляем лошадь
+      if (!hasTasksForHorse) {
+        delete grouped[horseId];
+      }
+    }
+  }
 
   let html = '';
   for (const horseId in grouped) {
