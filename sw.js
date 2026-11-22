@@ -7,6 +7,7 @@ const PRECACHE = [
   './icons/android/icon-192x192.png',
   './icons/android/icon-512x512.png',
   './icons/ios/icon-180x180.png'
+  './icons/splash.png'
 ];
 
 self.addEventListener('install', (event) => {
