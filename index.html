@@ -525,9 +525,14 @@
         <button class="btn block" id="addLessonBtn">+ Добавить тренировку</button>
       </div>
 
-      <div class="view" id="viewTasks">
+            <div class="view" id="viewTasks">
         <div class="card">
-          <h2>Мои задачи <span class="sub" id="tasksDateLabel">—</span></h2>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <button id="tasksPrevDate" class="cal-head button" style="width: 36px; height: 36px; border-radius: 10px; background: #3a2c20; color: #f5ecd9; border: 1px solid var(--border);">←</button>
+            <h2 style="margin: 0; font-size: 15px; text-align: center; color: #fbead0;">Задачи <span class="sub" id="tasksDateLabel" style="display: block; font-size: 12px; font-weight: 400; color: var(--muted);">—</span></h2>
+            <button id="tasksNextDate" class="cal-head button" style="width: 36px; height: 36px; border-radius: 10px; background: #3a2c20; color: #f5ecd9; border: 1px solid var(--border);">→</button>
+          </div>
+          
           <div class="tabs-inline" id="tasksPhaseTabs">
             <button data-phase="pre" class="active">До тренировки</button>
             <button data-phase="post">После тренировки</button>
@@ -751,6 +756,7 @@ let state = loadState(); // Теперь это безопасно, все фу�
 let currentUser = null;
 let calMode = 'month';
 let calCursor = new Date();
+let tasksDate = new Date(); // Текущая дата для раздела Задачи
 let openWeekDay = null;
 let editingLessonId = null;
 
@@ -1601,16 +1607,17 @@ $$('#tasksPhaseTabs button').forEach(b => {
 });
 
 function renderTasks() {
-  $('#tasksDateLabel').textContent = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-  const today = todayStr();
-  const todayLessons = state.lessons.filter(l => l.date === today);
+  // Устанавливаем дату
+  const dateStr = ymd(tasksDate);
+  $('#tasksDateLabel').textContent = tasksDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  
+  const dayLessons = state.lessons.filter(l => l.date === dateStr);
   const list = $('#tasksList');
   const isStaff = currentUser.role === 'staff';
   const canAssign = currentUser.role === 'owner' || currentUser.role === 'trainer';
 
-  // Собираем все задачи в один массив
   const rows = [];
-  todayLessons.forEach(l => {
+  dayLessons.forEach(l => {
     state.tasks.filter(t => t.lessonId === l.id && t.phase === tasksPhase).forEach(t => {
       if (isStaff && t.staffId !== currentUser.staffId) return;
       rows.push({ l, t });
@@ -1618,46 +1625,59 @@ function renderTasks() {
   });
 
   if (!rows.length) {
-    list.innerHTML = `<div class="empty">${isStaff ? 'На сегодня вам ничего не назначено' : 'На сегодня задач нет'}</div>`;
+    list.innerHTML = `<div class="empty">${isStaff ? 'На этот день вам ничего не назначено' : 'На этот день задач нет'}</div>`;
     return;
   }
 
-  // Группируем задачи по лошадям
+  // Группируем по лошадям, затем по тренировкам
   const grouped = {};
   rows.forEach(({ l, t }) => {
-    if (!grouped[l.horseId]) grouped[l.horseId] = [];
-    grouped[l.horseId].push({ l, t });
+    if (!grouped[l.horseId]) grouped[l.horseId] = {};
+    if (!grouped[l.horseId][l.id]) grouped[l.horseId][l.id] = { lesson: l, tasks: [] };
+    grouped[l.horseId][l.id].tasks.push(t);
   });
 
   let html = '';
   for (const horseId in grouped) {
-    const horseTasks = grouped[horseId];
     const hName = horseName(horseId);
-    
+    const horseLessons = grouped[horseId];
+    let totalTasks = 0;
+    for (const lid in horseLessons) totalTasks += horseLessons[lid].tasks.length;
+
     html += `<div class="card" style="margin-bottom:10px; padding: 0;">
+      <!-- УРОВЕНЬ 1: ЛОШАДЬ -->
       <div class="day-block" style="border: none; border-bottom: 1px solid var(--border); border-radius: 16px 16px 0 0; cursor: pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.classList.toggle('today-block');">
         <div class="day-title" style="margin: 0; font-size: 14px;">
-          🐎 ${hName} <span class="badge">${horseTasks.length} задач</span>
+          🐎 ${hName} <span class="badge">${totalTasks} задач</span>
         </div>
       </div>
-      <div style="display: none; padding: 10px 14px;">
-        ${horseTasks.map(({ l, t }) => {
-          const m = state.manipulations[t.phase].find(x => x.id === t.manipId) || { name: '—' };
-          const mine = t.staffId === currentUser.staffId;
-          const staffOpts = state.staff
-            .filter(s => s.role !== 'owner')
-            .map(s => `<option value="${s.id}" ${t.staffId === s.id ? 'selected' : ''}>${s.name}</option>`)
-            .join('');
-          return `<div class="manip ${t.done ? 'done' : ''}">
-            <input type="checkbox" data-task="${t.id}" ${t.done ? 'checked' : ''} ${isStaff && !mine ? 'disabled' : ''} />
-            <span class="label">
-              ${m.name}
-              <div class="who">${l.time} · ${staffName(t.staffId)}</div>
-            </span>
-            ${canAssign ? `<button class="btn small ghost" onclick="openAssignModal('${t.id}')">${t.staffId ? staffName(t.staffId) : '— кто —'}</button>` : ''}
-            ${mine ? '<span class="badge mine">моё</span>' : ''}
-            ${t.done && t.time ? `<span class="badge">${t.time}</span>` : ''}
-            ${t.done ? '<span class="badge done">готово</span>' : ''}
+      
+      <div style="display: none; padding: 0 10px 10px 10px;">
+        ${Object.values(horseLessons).map(({ lesson, tasks }) => {
+          // УРОВЕНЬ 2: ТРЕНИРОВКА
+          return `<div style="margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden;">
+            <div style="background: var(--bg); padding: 8px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none';">
+              <span style="font-size: 13px; font-weight: 600; color: var(--accent-2);">${lesson.time} (Тренер: ${staffName(lesson.trainerId)})</span>
+              <span style="font-size: 11px; color: var(--muted);">${tasks.length} задач ▼</span>
+            </div>
+            
+            <div style="display: none; padding: 0 12px; background: var(--panel);">
+              ${tasks.map(t => {
+                const m = state.manipulations[t.phase].find(x => x.id === t.manipId) || { name: '—' };
+                const mine = t.staffId === currentUser.staffId;
+                return `<div class="manip ${t.done ? 'done' : ''}">
+                  <input type="checkbox" data-task="${t.id}" ${t.done ? 'checked' : ''} ${isStaff && !mine ? 'disabled' : ''} />
+                  <span class="label">
+                    ${m.name}
+                    <div class="who">${staffName(t.staffId)}</div>
+                  </span>
+                  ${canAssign ? `<button class="btn small ghost" onclick="openAssignModal('${t.id}')">${t.staffId ? staffName(t.staffId) : '— кто —'}</button>` : ''}
+                  ${mine ? '<span class="badge mine">моё</span>' : ''}
+                  ${t.done && t.time ? `<span class="badge">${t.time}</span>` : ''}
+                  ${t.done ? '<span class="badge done">готово</span>' : ''}
+                </div>`;
+              }).join('')}
+            </div>
           </div>`;
         }).join('')}
       </div>
@@ -1666,7 +1686,7 @@ function renderTasks() {
   
   list.innerHTML = html;
 
-  // Вешаем обработчики на чекбоксы
+  // Обработчики чекбоксов
   list.querySelectorAll('input[type=checkbox]').forEach(cb => {
     cb.addEventListener('change', (e) => {
       const task = state.tasks.find(x => x.id === e.target.dataset.task);
@@ -1677,11 +1697,10 @@ function renderTasks() {
         task.time = pad(now.getHours()) + ':' + pad(now.getMinutes());
       }
       saveState();
-      renderTasks(); // Перерисовываем, чтобы обновить статус
+      renderTasks();
     });
   });
 }
-
 // Модалка выбора сотрудника в задачах
   
 let assigningTaskId = null;
@@ -1991,6 +2010,25 @@ if (splashPhoto.complete) {
     splashPhoto.style.opacity = '1';
   };
 }
+
+  // Переключение дат в задачах
+$('#tasksPrevDate').addEventListener('click', () => {
+  tasksDate.setDate(tasksDate.getDate() - 1);
+  renderTasks();
+});
+$('#tasksNextDate').addEventListener('click', () => {
+  tasksDate.setDate(tasksDate.getDate() + 1);
+  renderTasks();
+});
+
+// При переключении вкладки "Задачи" сбрасываем на сегодня
+$$('#bottomNav .nav-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    if (b.dataset.view === 'tasks' && !b.classList.contains('active')) {
+      tasksDate = new Date(); // Сброс на сегодня
+    }
+  });
+});
 // Запускаем проверку при старте
 testGasConnection();   
 renderLogin();
