@@ -1343,7 +1343,7 @@ function renderCalendar() {
       const isOther = d.getMonth() !== m;
       const isToday = sameDay(d, new Date());
       const dayLessons = lessons.filter(l => l.date === ds);
-      html += `<div class="month-cell ${isOther ? 'other' : ''} ${isToday ? 'today' : ''}" data-date="${ds}">`;
+      html += `<div class="month-cell ${isOther ? 'other' : ''} ${isToday ? 'today' : ''}" data-date="${ds}">
         <div class="num">${d.getDate()}</div>
         ${dayLessons.slice(0, 3).map(l => `<div class="ev" data-lesson="${l.id}">${l.time} ${horseName(l.horseId)}</div>`).join('')}
         ${dayLessons.length > 3 ? `<div class="ev" style="background:var(--panel-2);color:var(--muted);">+${dayLessons.length - 3}</div>` : ''}
