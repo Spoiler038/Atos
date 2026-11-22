@@ -1498,7 +1498,7 @@ function openLessonModal(lessonId) {
   $('#lessonModalTitle').textContent = l ? 'Редактировать тренировку' : 'Новая тренировка';
   let defaultDate = ymd(calCursor);   
   if (calMode === 'week' && openWeekDay) {     defaultDate = openWeekDay;   }   $('#lessonDate').value = l ? l.date : defaultDate;
-  $('#lessonTime').value = l ? l.time : '10:00';
+  $('#lessonTime').value = l ? l.time : '09:00';
   $('#lessonHorse').innerHTML = state.horses.map(h => `<option value="${h.id}" ${l && l.horseId === h.id ? 'selected' : ''}>${h.name}</option>`).join('');
   const trainers = state.staff.filter(s => s.role === 'trainer');
   const pool = trainers.length ? trainers : state.staff;
