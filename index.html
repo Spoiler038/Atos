@@ -1350,14 +1350,18 @@ function renderCalendar() {
     const first = new Date(y, m, 1);
     const dow = (first.getDay() + 6) % 7;
     const start = addDays(first, -dow);
+    
     let html = '<div class="month-grid">';
     ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].forEach(d => html += `<div class="dow">${d}</div>`);
+    
     for (let i = 0; i < 42; i++) {
       const d = addDays(start, i);
       const ds = ymd(d);
       const isOther = d.getMonth() !== m;
       const isToday = sameDay(d, new Date());
       const dayLessons = lessons.filter(l => l.date === ds);
+      
+      // Обратите внимание: атрибут data-date вынесен корректно
       html += `<div class="month-cell ${isOther ? 'other' : ''} ${isToday ? 'today' : ''}" data-date="${ds}">
         <div class="num">${d.getDate()}</div>
         ${dayLessons.slice(0, 3).map(l => `<div class="ev" data-lesson="${l.id}">${l.time} ${horseName(l.horseId)}</div>`).join('')}
@@ -1366,19 +1370,26 @@ function renderCalendar() {
     }
     html += '</div>';
     area.innerHTML = html;
-        // Делаем кликабельными все ячейки месяца
+    
+    // Обработчик клика по ячейке месяца
     area.querySelectorAll('.month-cell').forEach(cell => {
       cell.onclick = (e) => {
-        const dateStr = cell.dataset.date; // Нужно добавить этот атрибут в шаблоне
+        const dateStr = cell.dataset.date;
         if (!dateStr) return;
         
-        // Мгновенная визуальная реакция
+        // Визуальная реакция
         cell.style.background = '#5a4229';
         setTimeout(() => {
-          cell.style.background = ''; // Сбрасываем
+          cell.style.background = '';
+          
+          // Переключаем на режим День
           calMode = 'day';
-          calCursor = toDate(dateStr);
+          calCursor = toDate(dateStr); // используем функцию toDate
+          
+          // Обновляем активную кнопку в переключателе режимов
           $$('.cal-modes button').forEach(b => b.classList.toggle('active', b.dataset.mode === 'day'));
+          
+          // Перерисовываем календарь
           renderCalendar();
         }, 150);
       };
@@ -1402,6 +1413,7 @@ function renderCalendar() {
       const isToday = sameDay(d, today);
       const isOpen = openWeekDay === ds;
       const dayLessons = lessons.filter(l => l.date === ds).sort((a, b) => a.time.localeCompare(b.time));
+      
       html += `<div class="day-block ${isToday ? 'today-block' : ''}" data-day="${ds}">
         <div class="day-title">
           ${d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' })}
@@ -1422,17 +1434,21 @@ function renderCalendar() {
         renderCalendar();
       };
     });
+    
     area.querySelectorAll('.lesson').forEach(el => {
       el.onclick = (e) => { e.stopPropagation(); openLessonModal(el.dataset.lesson); };
     });
 
   } else {
+    // Режим День
     title.textContent = calCursor.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
     const ds = ymd(calCursor);
     const dayLessons = lessons.filter(l => l.date === ds).sort((a, b) => a.time.localeCompare(b.time));
+    
     area.innerHTML = `<div class="day-grid"><div class="day-block">
       ${dayLessons.length ? dayLessons.map(lessonRow).join('') : '<div class="empty">На этот день тренировок нет</div>'}
     </div></div>`;
+    
     area.querySelectorAll('.lesson').forEach(el => {
       el.onclick = () => openLessonModal(el.dataset.lesson);
     });
