@@ -685,6 +685,21 @@
     </div>
   </div>
 
+      <!-- МОДАЛКА УДАЛЕНИЯ ТРЕНИРОВКИ -->
+  <div class="overlay center-modal" id="deleteLessonModal">
+    <div class="sheet">
+      <h3 style="color: #ef4444;">⚠️ Удалить тренировку?</h3>
+      <div class="field" style="text-align: center; margin-bottom: 20px;">
+        Вы уверены, что хотите удалить эту тренировку и все связанные с ней задачи?<br>
+        <span style="font-size: 12px; color: var(--muted);">Это действие нельзя отменить.</span>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn ghost" id="deleteLessonCancel">Отмена</button>
+        <button class="btn danger" id="deleteLessonConfirm">Удалить</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 const KEY = 'horse_crm_v1';
 const KEY_META = 'horse_crm_meta';
@@ -1496,11 +1511,31 @@ $('#lessonSave').addEventListener('click', () => {
 
 $('#lessonDelete').addEventListener('click', () => {
   if (!editingLessonId) return;
-  if (!confirm('Удалить тренировку и все её задачи?')) return;
+  // Закрываем модалку редактирования и открываем модалку подтверждения
+  $('#lessonModal').classList.remove('show');
+  $('#deleteLessonModal').classList.add('show');
+});
+
+// Отмена удаления — возвращаемся к редактированию
+$('#deleteLessonCancel').addEventListener('click', () => {
+  $('#deleteLessonModal').classList.remove('show');
+  $('#lessonModal').classList.add('show'); // Возвращаем шторку тренировки
+});
+
+// Подтверждение удаления
+$('#deleteLessonConfirm').addEventListener('click', () => {
+  if (!editingLessonId) return;
+  
+  // Удаляем данные
   state.lessons = state.lessons.filter(l => l.id !== editingLessonId);
   state.tasks = state.tasks.filter(t => t.lessonId !== editingLessonId);
   saveState();
-  closeLessonModal();
+  
+  // Закрываем всё и обновляем календарь
+  $('#deleteLessonModal').classList.remove('show');
+  unlockScroll();
+  editingLessonId = null;
+  
   renderCalendar();
   toast('Тренировка удалена', true);
 });
