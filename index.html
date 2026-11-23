@@ -1189,8 +1189,8 @@ $('#loginBtn').addEventListener('click', () => {
   const person = state.staff.find(s => s.id === staffId);
   if (!person) return toast('Сотрудник не найден');
 
-  // Если у сотрудника нет пароля — пускаем сразу
-  if (!person.password) {
+    // Если у сотрудника нет пароля — пускаем сразу
+  if (!person.password_hash && !person.password) {
     doLogin(staffId);
     return;
   }
@@ -1267,7 +1267,7 @@ $('#logoutConfirmBtn').addEventListener('click', () => {
       person.device_id = ''; // Отвязываем устройство
       // Дополнительно стираем device_id из localStorage
       localStorage.removeItem('horse_crm_device_id');
-      
+      deviceId = null; // Сбрасываем в памяти
       gasCall({
         action: 'save_all',
         state: {
