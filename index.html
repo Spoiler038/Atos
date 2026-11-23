@@ -970,15 +970,21 @@ async function pushToCloud() {
         tasks: state.tasks
       }
     };
-    const { data, error } = await gasCall(payload, 20000);
+    const { data, error } = await gasCall(payload, 45000);
     if (error) throw error;
     if (data && data.version) {
       writeMeta({ version: data.version, lastSync: Date.now() });
       localStorage.removeItem('horse_crm_pending'); // Успешно отправили
     }
-    } catch (e) {
+      } catch (e) {
     console.error('Ошибка синхронизации:', e);
-    localStorage.setItem('horse_crm_pending', 'true'); // Помечаем, что не ушло
+    if (e.message === 'timeout') {
+      // Скорее всего, данные записались, просто не дождались ответа
+      console.log('⏳ Таймаут, но данные могли записаться');
+      // Не ставим pending, чтобы избежать дублирования
+    } else {
+      localStorage.setItem('horse_crm_pending', 'true');
+    }
   } finally {
     _savingNow = false;
     setSyncStatus('synced');
