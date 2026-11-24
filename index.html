@@ -1189,22 +1189,30 @@ $('#loginBtn').addEventListener('click', () => {
   const person = state.staff.find(s => s.id === staffId);
   if (!person) return toast('Сотрудник не найден');
 
-     // Если у сотрудника нет пароля — предлагаем создать
-  if (!person.password_hash) {
-    // Запоминаем, кто пытается войти
-    loginAttemptId = staffId;
-    $('#passLoginName').textContent = person.name;
-    $('#loginPassword').value = '';
-    $('#passwordModal').classList.add('show');
-    lockScroll();
-    setTimeout(() => $('#loginPassword').focus(), 100);
-    return;
-  }
-
-  // Если пароль есть — открываем шторку
   loginAttemptId = staffId;
   $('#passLoginName').textContent = person.name;
   $('#loginPassword').value = '';
+
+  // Проверяем: если пароль короткий (4-значный код), значит это сброс
+  if (person.password_hash && person.password_hash.length < 10) {
+    $('#passwordModal').querySelector('h3').textContent = 'Сброс пароля';
+    $('#passSubmitBtn').textContent = 'Подтвердить';
+    // Показываем подсказку
+    $('#loginPassword').placeholder = 'Введите код от Владельца';
+  } 
+  // Если пароля нет вообще (новый сотрудник) — предлагаем создать
+  else if (!person.password_hash) {
+    $('#passwordModal').querySelector('h3').textContent = 'Создайте пароль';
+    $('#passSubmitBtn').textContent = 'Сохранить';
+    $('#loginPassword').placeholder = 'Придумайте пароль (мин. 4 символа)';
+  }
+  // Обычный вход
+  else {
+    $('#passwordModal').querySelector('h3').textContent = 'Вход в систему';
+    $('#passSubmitBtn').textContent = 'Войти';
+    $('#loginPassword').placeholder = 'Введите пароль';
+  }
+
   $('#passwordModal').classList.add('show');
   lockScroll();
   setTimeout(() => $('#loginPassword').focus(), 100);
@@ -1223,6 +1231,25 @@ $('#passSubmitBtn').addEventListener('click', async () => {
   if (!person) return;
   
   const inputPass = String($('#loginPassword').value).trim();
+
+  // Если это режим сброса (короткий код)
+  if (person.password_hash && person.password_hash.length < 10) {
+    if (inputPass !== person.password_hash) {
+      toast('Неверный код сброса', false);
+      return;
+    }
+    // Код верный — просим придумать новый пароль
+    toast('Код верный! Теперь придумайте новый пароль.', true);
+    person.password_hash = ''; // Стираем код, теперь пароля нет
+    saveState();
+    renderAdmin(); // Обновляем админку, если открыта
+    // Меняем заголовок шторки на "Создайте пароль"
+    $('#passwordModal').querySelector('h3').textContent = 'Создайте пароль';
+    $('#passSubmitBtn').textContent = 'Сохранить';
+    $('#loginPassword').value = '';
+    $('#loginPassword').placeholder = 'Придумайте пароль (мин. 4 символа)';
+    return;
+  }
   
   // Если у человека НЕТ пароля — значит он его сейчас придумал
   if (!person.password_hash) {
@@ -1942,20 +1969,20 @@ function resetStaffPassword(staffId) {
   const person = state.staff.find(s => s.id === staffId);
   if (!person) return;
   
-  // Очищаем хеш пароля
-  person.password_hash = '';
+  // Генерируем случайный 4-значный код
+  const resetCode = Math.floor(1000 + Math.random() * 9000).toString();
+  
+  // Сохраняем код как временный пароль (пока сотрудник его не сменит)
+  person.password_hash = resetCode; // Пока храним открытым текстом, но только для сброса
+  person.device_id = ''; // Отвязываем устройство
+  
   saveState();
   
-  // Если это текущий пользователь, сбрасываем его device_id, чтобы он вылетел
-  if (currentUser && currentUser.staffId === staffId) {
-    person.device_id = '';
-    localStorage.removeItem('horse_crm_device_id');
-    location.reload(); 
-  } else {
-    toast(`Пароль для ${person.name} сброшен`, true);
-    renderAdmin();
-  }
-}  
+  // Показываем код Владельцу
+  alert(`Код для сброса пароля ${person.name}: ${resetCode}\n\nПередайте этот код сотруднику.`);
+  toast(`Код сброса для ${person.name} создан`, true);
+  renderAdmin();
+} 
   
 $('#addStaffBtn').addEventListener('click', async () => {
   const name = $('#newStaff').value.trim();
