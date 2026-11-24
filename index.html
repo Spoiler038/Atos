@@ -1419,7 +1419,7 @@ function allowedViews(role) {
   if (role === 'owner') return ['schedule', 'tasks', 'horses', 'admin'];
   if (role === 'trainer') return ['schedule', 'tasks', 'horses'];
   // Конюх и обычный сотрудник видят только свои задачи и лошадей
-  return ['tasks', 'horses']; 
+  return ['schedule', 'tasks', 'horses'];  
 }
 
 function startApp() {
@@ -1482,10 +1482,18 @@ function shiftCalendar(dir) {
 
 function myLessons() {
   if (currentUser.role === 'trainer') return state.lessons.filter(l => l.trainerId === currentUser.staffId);
-  if (currentUser.role === 'staff') {
-    const ids = new Set(state.tasks.filter(t => t.staffId === currentUser.staffId).map(t => t.lessonId));
-    return state.lessons.filter(l => ids.has(l.id));
+  
+  // Если это конюх или сотрудник — показываем только те тренировки, где у него есть задачи
+  if (currentUser.role === 'staff' || currentUser.role === 'groom') {
+    // Собираем ID тренировок, где этот сотрудник назначен хотя бы на одну задачу
+    const myLessonIds = new Set(
+      state.tasks
+        .filter(t => t.staffId === currentUser.staffId)
+        .map(t => t.lessonId)
+    );
+    return state.lessons.filter(l => myLessonIds.has(l.id));
   }
+  
   return state.lessons;
 }
 
@@ -1943,6 +1951,15 @@ function assignStaffToTask(staffId) {
   }
   
   saveState();
+    // Отправляем пуш сотруднику
+  if (staffId) {
+    gasCall({
+      action: 'send_push_to_staff',
+      staffId: staffId,
+      title: 'Новая задача',
+      body: `Вам назначена манипуляция: ${m.name}` // m.name нужно вытащить из контекста
+    });
+  }
   renderTasks();
   closeAssignModal();
 }
