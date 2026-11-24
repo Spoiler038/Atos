@@ -722,6 +722,24 @@
     </div>
   </div>
 
+      <!-- МОДАЛКА КОДА СБРОСА -->
+  <div class="overlay center-modal" id="resetCodeModal">
+    <div class="sheet">
+      <h3 style="text-align: center;">Код для сброса пароля</h3>
+      <div class="field" style="text-align: center;">
+        <p style="font-size: 14px; color: var(--muted); margin-bottom: 16px;">
+          Передайте этот код сотруднику <strong id="resetStaffName" style="color: var(--text);"></strong>. 
+          Без него он не сможет создать новый пароль.
+        </p>
+        <div id="resetCodeValue" style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: var(--accent-2); background: var(--bg); padding: 16px; border-radius: 12px; border: 1px solid var(--border);"></div>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn ghost" onclick="document.getElementById('resetCodeModal').classList.remove('show'); unlockScroll();">Отмена</button>
+        <button class="btn" id="shareResetCodeBtn">Поделиться</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 const KEY = 'horse_crm_v1';
 const KEY_META = 'horse_crm_meta';
@@ -1935,7 +1953,7 @@ function renderAdmin() {
       $('#staffAdminList').innerHTML = state.staff.map(s => `
     <div class="staff-row">
       <span class="name">${s.name}</span>
-      <button class="btn small ghost" onclick="resetStaffPassword('${s.id}')" style="font-size:10px; padding: 2px 6px;">Сброс</button>
+      <button class="btn small ghost" onclick="resetStaffPassword('${s.id}')" style="font-size:10px; padding: 2px 6px;">Сброс 🔐</button>
       <button class="badge" data-role-staff="${s.id}" style="min-width: 80px; text-align: center;">${ROLES[s.role] ? ROLES[s.role].title : s.role}</button>
       <button class="btn small ghost" data-del-staff="${s.id}">✕</button>
     </div>
@@ -1976,24 +1994,53 @@ function renderAdmin() {
   });
 }
 
+let currentResetCode = ''; // Переменная для хранения кода
+
 function resetStaffPassword(staffId) {
   const person = state.staff.find(s => s.id === staffId);
   if (!person) return;
   
   // Генерируем случайный 4-значный код
   const resetCode = Math.floor(1000 + Math.random() * 9000).toString();
+  currentResetCode = resetCode;
   
-  // Сохраняем код как временный пароль (пока сотрудник его не сменит)
-  person.password_hash = resetCode; // Пока храним открытым текстом, но только для сброса
+  // Сохраняем код как временный пароль
+  person.password_hash = resetCode; 
   person.device_id = ''; // Отвязываем устройство
   
   saveState();
   
-  // Показываем код Владельцу
-  alert(`Код для сброса пароля ${person.name}: ${resetCode}\n\nПередайте этот код сотруднику.`);
-  toast(`Код сброса для ${person.name} создан`, true);
+  // Показываем код Владельцу в модалке
+  $('#resetStaffName').textContent = person.name;
+  $('#resetCodeValue').textContent = resetCode;
+  $('#resetCodeModal').classList.add('show');
+  lockScroll();
+  
   renderAdmin();
-} 
+}
+
+$('#shareResetCodeBtn').addEventListener('click', async () => {
+  const text = `Код для сброса пароля конного клуба "Атос": ${currentResetCode}\n\nВведите его на экране входа, чтобы задать новый пароль.`;
+  
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Код сброса пароля',
+        text: text
+      });
+    } catch (err) {
+      console.log('Ошибка шаринга:', err);
+    }
+  } else {
+    // Если браузер не поддерживает Web Share API (например, ПК)
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('Код скопирован в буфер обмена', true);
+    } catch (err) {
+      toast('Не удалось скопировать', false);
+    }
+  }
+});
   
 $('#addStaffBtn').addEventListener('click', async () => {
   const name = $('#newStaff').value.trim();
