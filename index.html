@@ -598,7 +598,19 @@
           </div>
           <div id="manipAdminList"></div>
         </div>
-      </div>
+              <div class="card">
+          <h2>Настройки приложения</h2>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 0;">
+            <span style="font-size: 14px;">🔔 Пуш-уведомления</span>
+            <label style="position: relative; display: inline-block; width: 46px; height: 24px; cursor: pointer;">
+              <input type="checkbox" id="pushToggle" style="opacity: 0; width: 0; height: 0;">
+              <span style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #4a3826; border-radius: 24px; transition: .3s;"></span>
+              <span style="position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: #f5ecd9; border-radius: 50%; transition: .3s;" class="slider-thumb"></span>
+            </label>
+          </div>
+          <div class="empty" style="font-size: 11px; padding: 8px 0 0 0; text-align: left;">Включите, чтобы получать уведомления о назначенных задачах и выполненных действиях.</div>
+        </div>
+      </div> <!-- Закрывается viewAdmin -->
     </div>
     
 
@@ -2064,10 +2076,12 @@ function renderAdmin() {
     s.role = order[(order.indexOf(s.role) + 1) % order.length];
     saveState(); renderAdmin();
   });
+  
   $$('[data-del-staff]').forEach(b => b.onclick = () => {
     state.staff = state.staff.filter(x => x.id !== b.dataset.delStaff);
     saveState(); renderAdmin();
   });
+  
   $$('[data-del-horse]').forEach(b => b.onclick = () => {
     state.horses = state.horses.filter(x => x.id !== b.dataset.delHorse);
     saveState(); renderAdmin();
@@ -2076,6 +2090,7 @@ function renderAdmin() {
     state.manipulations[manipPhase] = state.manipulations[manipPhase].filter(x => x.id !== b.dataset.delManip);
     saveState(); renderAdmin();
   });
+  updatePushToggleState();
 }
 
 let currentResetCode = ''; // Переменная для хранения кода
@@ -2200,9 +2215,46 @@ bindSwipe($('#viewTasks'), () => {
   renderTasks();
 });
 
+// Проверяем текущее состояние подписки при рендере Админки
+function updatePushToggleState() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    $('#pushToggle').checked = false;
+    $('#pushToggle').disabled = true;
+    return;
+  }
+  navigator.serviceWorker.ready.then(reg => {
+    reg.pushManager.getSubscription().then(sub => {
+      $('#pushToggle').checked = !!sub;
+    });
+  });
+}
 
+// Обработчик тоггла
+$('#pushToggle').addEventListener('change', async (e) => {
+  if (e.target.checked) {
+    // Включаем
+    await subscribeToPush();
+    toast('Уведомления включены', true);
+  } else {
+    // Выключаем
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await sub.unsubscribe();
+        // Сообщаем GAS, чтобы удалил из таблицы
+        gasCall({
+          action: 'delete_push_sub',
+          device_id: deviceId
+        });
+      }
+      toast('Уведомления отключены', true);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+});
   
-// === ДИАГНОСТИКА GAS ===
 // === ДИАГНОСТИКА GAS И ЗАГРУЗКА ===
 async function testGasConnection() {
   // Искусственная задержка, чтобы пользователь успел увидеть начало загрузки
