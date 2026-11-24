@@ -1189,9 +1189,15 @@ $('#loginBtn').addEventListener('click', () => {
   const person = state.staff.find(s => s.id === staffId);
   if (!person) return toast('Сотрудник не найден');
 
-    // Если у сотрудника нет пароля — пускаем сразу
-  if (!person.password_hash && !person.password) {
-    doLogin(staffId);
+     // Если у сотрудника нет пароля — предлагаем создать
+  if (!person.password_hash) {
+    // Запоминаем, кто пытается войти
+    loginAttemptId = staffId;
+    $('#passLoginName').textContent = person.name;
+    $('#loginPassword').value = '';
+    $('#passwordModal').classList.add('show');
+    lockScroll();
+    setTimeout(() => $('#loginPassword').focus(), 100);
     return;
   }
 
@@ -1218,14 +1224,25 @@ $('#passSubmitBtn').addEventListener('click', async () => {
   
   const inputPass = String($('#loginPassword').value).trim();
   
-  // Если у человека нет пароля — пускаем сразу
+  // Если у человека НЕТ пароля — значит он его сейчас придумал
   if (!person.password_hash) {
+    if (inputPass.length < 4) {
+      toast('Пароль должен быть не менее 4 символов', false);
+      return;
+    }
+    
+    // Сохраняем новый пароль
+    person.password_hash = await hashPassword(inputPass);
+    saveState();
+    toast('Пароль успешно создан!', true);
+    
     $('#passwordModal').classList.remove('show');
     unlockScroll();
     doLogin(loginAttemptId);
     return;
   }
 
+  // Если пароль ЕСТЬ — проверяем
   const inputHash = await hashPassword(inputPass);
   if (inputHash !== person.password_hash) {
     toast('Неверный пароль', false);
@@ -1880,7 +1897,7 @@ function renderAdmin() {
     $('#staffAdminList').innerHTML = state.staff.map(s => `
     <div class="list-item">
       <span class="name">${s.name}</span>
-      <span style="font-size:10px; color:var(--muted);">${s.password || '—'}</span>
+      <button class="btn small ghost" onclick="resetStaffPassword('${s.id}')" style="font-size:10px; padding: 2px 6px;">Сброс</button>
       <button class="badge" data-role-staff="${s.id}">${ROLES[s.role] ? ROLES[s.role].title : s.role}</button>
       <button class="btn small ghost" data-del-staff="${s.id}">✕</button>
     </div>
@@ -1921,6 +1938,25 @@ function renderAdmin() {
   });
 }
 
+function resetStaffPassword(staffId) {
+  const person = state.staff.find(s => s.id === staffId);
+  if (!person) return;
+  
+  // Очищаем хеш пароля
+  person.password_hash = '';
+  saveState();
+  
+  // Если это текущий пользователь, сбрасываем его device_id, чтобы он вылетел
+  if (currentUser && currentUser.staffId === staffId) {
+    person.device_id = '';
+    localStorage.removeItem('horse_crm_device_id');
+    location.reload(); 
+  } else {
+    toast(`Пароль для ${person.name} сброшен`, true);
+    renderAdmin();
+  }
+}  
+  
 $('#addStaffBtn').addEventListener('click', async () => {
   const name = $('#newStaff').value.trim();
   const password = $('#newStaffPass').value.trim();
