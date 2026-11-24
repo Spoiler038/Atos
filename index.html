@@ -451,6 +451,17 @@
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
     }
+
+        .staff-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto; /* Имя забирает всё свободное место, остальные по содержимому */
+      align-items: center;
+      gap: 8px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .staff-row:last-child { border-bottom: none; }
   </style>
 </head>
 <body>
@@ -1921,11 +1932,11 @@ $$('#manipPhaseTabs button').forEach(b => {
 });
 
 function renderAdmin() {
-    $('#staffAdminList').innerHTML = state.staff.map(s => `
-    <div class="list-item">
+      $('#staffAdminList').innerHTML = state.staff.map(s => `
+    <div class="staff-row">
       <span class="name">${s.name}</span>
-      <button class="btn small ghost" onclick="resetStaffPassword('${s.id}')" style="font-size:10px; padding: 2px 6px;">Сброс 🔐</button>
-      <button class="badge" data-role-staff="${s.id}">${ROLES[s.role] ? ROLES[s.role].title : s.role}</button>
+      <button class="btn small ghost" onclick="resetStaffPassword('${s.id}')" style="font-size:10px; padding: 2px 6px;">Сброс</button>
+      <button class="badge" data-role-staff="${s.id}" style="min-width: 80px; text-align: center;">${ROLES[s.role] ? ROLES[s.role].title : s.role}</button>
       <button class="btn small ghost" data-del-staff="${s.id}">✕</button>
     </div>
   `).join('') || '<div class="empty">Нет сотрудников</div>';
