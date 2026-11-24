@@ -600,6 +600,7 @@
         </div>
       </div>
     </div>
+    
 
     <nav class="bottom-nav" id="bottomNav">
       <button class="nav-btn" data-view="schedule"><span class="ico">📅</span>Расписание</button>
@@ -935,30 +936,35 @@ function normalizeState(s) {
 
   async function subscribeToPush() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    console.log('Push не поддерживается');
+    console.log('Push не поддерживается в этом браузере');
     return;
   }
   if (!currentUser) return;
 
   try {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      console.log('Пользователь отклонил уведомления');
-      return;
-    }
-
+    // Проверяем, есть ли уже подписка
     const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array('ВАШ_VAPID_PUBLIC_KEY') // Вставьте сюда ваш публичный ключ
-    });
+    let subscription = await registration.pushManager.getSubscription();
+    
+    if (!subscription) {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        console.log('Пользователь отклонил уведомления');
+        return;
+      }
+      
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array('BO5mDuU0D0DbYXwwHi_Q6XeuwobMS3G9eRX4NwlOKoDNGC4EXFx8k1Hn4L47rDuImr8dKSjlhQEo53vvEj5Feog')
+      });
+    }
 
     const subJson = subscription.toJSON();
     
     // Отправляем в GAS
-    await gasCall({
+    gasCall({
       action: 'save_push_sub',
-      staffId: currentUser.staffId, // Передаем ID сотрудника
+      staffId: currentUser.staffId,
       device_id: deviceId,
       endpoint: subJson.endpoint,
       p256dh: subJson.keys.p256dh,
@@ -1233,6 +1239,7 @@ function loginAs(staffId) {
   $('#appScreen').style.display = 'flex';
   $('#topRole').textContent = ROLES[person.role].title + ' · ' + currentUser.name;
   startApp();
+  subscribeToPush();
 }
 
 // Функция завершения входа (привязка устройства и сохранение)
@@ -1862,7 +1869,7 @@ function renderTasks() {
   list.innerHTML = html;
 
   // Обработчики чекбоксов
-  list.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    list.querySelectorAll('input[type=checkbox]').forEach(cb => {
     cb.addEventListener('change', (e) => {
       const task = state.tasks.find(x => x.id === e.target.dataset.task);
       if (!task) return;
@@ -1873,6 +1880,17 @@ function renderTasks() {
       }
       saveState();
       renderTasks();
+      
+      // ⭐ Отправляем пуш владельцу при выполнении
+      if (task.done) {
+        const manip = state.manipulations[task.phase].find(x => x.id === task.manipId);
+        const lesson = state.lessons.find(l => l.id === task.lessonId);
+        gasCall({
+          action: 'send_push_to_owner',
+          title: '✅ Задача выполнена',
+          body: `${currentUser.name} выполнил: ${manip ? manip.name : 'манипуляция'} (${horseName(lesson ? lesson.horseId : '')})`
+        });
+      }
     });
   });
 }
